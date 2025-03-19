@@ -24,6 +24,9 @@ builder.Services.AddSingleton<IAmazonS3>(sp =>
     ));
 builder.Services.AddScoped<S3Service>();
 
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<AuthService>();
+
 // Thêm cấu hình xác thực JWT
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
