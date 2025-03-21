@@ -12,20 +12,29 @@ builder.Services.AddControllers();
 // Thêm Swagger
 builder.Services.AddSwaggerGen();
 
-// Đăng ký AuthService
+// Đăng ký AuthService (chỉ cần một lần, loại bỏ trùng lặp)
 builder.Services.AddScoped<AuthService>();
 
+// Đăng ký S3Service và IAmazonS3 cho S3 Express One Zone
 // Đăng ký S3Service và IAmazonS3
 builder.Services.AddSingleton<IAmazonS3>(sp =>
-    new AmazonS3Client(
+{
+    var s3Config = new AmazonS3Config
+    {
+        RegionEndpoint = Amazon.RegionEndpoint.APNortheast1 // ap-northeast-1 (Tokyo)
+    };
+
+    return new AmazonS3Client(
         builder.Configuration["AWS:AccessKey"],
         builder.Configuration["AWS:SecretKey"],
-        Amazon.RegionEndpoint.GetBySystemName(builder.Configuration["AWS:Region"])
-    ));
+        s3Config
+    );
+});
+
 builder.Services.AddScoped<S3Service>();
 
+// Thêm MemoryCache (đã đúng)
 builder.Services.AddMemoryCache();
-builder.Services.AddScoped<AuthService>();
 
 // Thêm cấu hình xác thực JWT
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -33,25 +42,25 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = true,              // Xác minh Issuer
-            ValidateAudience = true,            // Xác minh Audience
-            ValidateLifetime = true,            // Xác minh thời hạn token
-            ValidateIssuerSigningKey = true,    // Xác minh khóa ký
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],    // Giá trị từ appsettings.json
-            ValidAudience = builder.Configuration["Jwt:Audience"], // Giá trị từ appsettings.json
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"])) // Khóa bí mật
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
         };
     });
 
-// Thêm CORS (nếu frontend chạy trên domain/cổng khác, như localhost:3000)
+// Thêm CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", builder =>
     {
-        builder.AllowAnyOrigin()   // Cho phép tất cả origin (có thể giới hạn cụ thể)
-               .AllowAnyMethod()   // Cho phép tất cả HTTP methods (GET, POST, ...)
-               .AllowAnyHeader();  // Cho phép tất cả header (Authorization, ...)
+        builder.AllowAnyOrigin()
+               .AllowAnyMethod()
+               .AllowAnyHeader();
     });
 });
 

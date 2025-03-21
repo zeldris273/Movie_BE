@@ -9,7 +9,7 @@ namespace backend.Services
     public class S3Service
     {
         private readonly IAmazonS3 _s3Client;
-        private const string BucketName = "my-movie";
+        private const string BucketName = "my-movie-app";
 
         public S3Service(IAmazonS3 s3Client)
         {
@@ -25,11 +25,13 @@ namespace backend.Services
                 Key = "videos/" + uniqueFileName,
                 InputStream = fileStream,
                 ContentType = contentType,
-                CannedACL = S3CannedACL.PublicRead // Đặt file public
             };
 
             await _s3Client.PutObjectAsync(request);
-            return $"https://{BucketName}.s3.amazonaws.com/videos/{uniqueFileName}";
+
+            // Trả về đường dẫn đúng của file trong S3
+            return $"https://{BucketName}.s3.ap-northeast-1.amazonaws.com/videos/{uniqueFileName}";
         }
+
     }
 }
