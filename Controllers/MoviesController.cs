@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using backend.Services;
 using Microsoft.AspNetCore.Http;
@@ -19,29 +21,51 @@ namespace backend.Controllers
         }
 
         [HttpPost("upload")]
-        public async Task<IActionResult> UploadMovie(IFormFile file)
+        public async Task<IActionResult> UploadMovie(
+     [FromForm] IFormFile videoFile,
+     [FromForm] List<IFormFile> imageFiles)
         {
-            if (file == null || file.Length == 0)
-                return BadRequest("No file uploaded");
+            if (videoFile == null || videoFile.Length == 0)
+                return BadRequest("No video file uploaded");
 
-            var allowedExtensions = new[] { ".mp4", ".mkv", ".avi" };
-            var extension = Path.GetExtension(file.FileName).ToLower();
-            if (!allowedExtensions.Contains(extension))
-                return BadRequest("Invalid file format. Only MP4, MKV, AVI are allowed.");
+            if (imageFiles == null || imageFiles.Count == 0)
+                return BadRequest("No image files uploaded");
 
-            if (file.Length > 500 * 1024 * 1024)
-                return BadRequest("File size exceeds 500MB.");
+            var allowedVideoExtensions = new[] { ".mp4", ".avi", ".mov" };
+            var allowedImageExtensions = new[] { ".jpg", ".jpeg", ".png" };
 
-            try
+            var videoExtension = Path.GetExtension(videoFile.FileName).ToLower();
+            if (!allowedVideoExtensions.Contains(videoExtension))
+                return BadRequest("Invalid video format. Only MP4, AVI, MOV are allowed.");
+
+            if (videoFile.Length > 500 * 1024 * 1024) // 500MB
+                return BadRequest("Video file size exceeds the maximum limit of 500MB.");
+
+            var videoUrl = await _s3Service.UploadFileAsync(
+                videoFile.OpenReadStream(),
+                videoFile.FileName,
+                "videos",
+                videoFile.ContentType
+            );
+
+            var imageUrls = new List<string>();
+            foreach (var imageFile in imageFiles)
             {
-                await using var stream = file.OpenReadStream();
-                string fileUrl = await _s3Service.UploadVideoAsync(stream, file.FileName, file.ContentType);
-                return Ok(new { url = fileUrl });
+                var imageExtension = Path.GetExtension(imageFile.FileName).ToLower();
+                if (!allowedImageExtensions.Contains(imageExtension))
+                    return BadRequest($"Invalid image format: {imageFile.FileName}. Only JPG, JPEG, PNG are allowed.");
+
+                var imageUrl = await _s3Service.UploadFileAsync(
+                    imageFile.OpenReadStream(),
+                    imageFile.FileName,
+                    "images",
+                    imageFile.ContentType
+                );
+                imageUrls.Add(imageUrl);
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Error uploading file: {ex.Message}");
-            }
+
+            return Ok(new { VideoUrl = videoUrl, ImageUrls = imageUrls });
         }
+
     }
 }

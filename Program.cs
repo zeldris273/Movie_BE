@@ -2,6 +2,7 @@ using Amazon.S3;
 using backend.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -29,6 +30,14 @@ builder.Services.AddSingleton<IAmazonS3>(sp =>
         builder.Configuration["AWS:SecretKey"],
         s3Config
     );
+});
+
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Movie API", Version = "v1" });
+
+    // Cấu hình hỗ trợ upload file
+    c.OperationFilter<SwaggerFileUploadOperationFilter>();
 });
 
 builder.Services.AddScoped<S3Service>();

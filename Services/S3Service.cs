@@ -16,22 +16,18 @@ namespace backend.Services
             _s3Client = s3Client;
         }
 
-        public async Task<string> UploadVideoAsync(Stream fileStream, string fileName, string contentType)
+        public async Task<string> UploadFileAsync(Stream fileStream, string fileName, string folder, string contentType)
         {
-            var uniqueFileName = $"{Guid.NewGuid()}_{fileName}";
             var request = new PutObjectRequest
             {
                 BucketName = BucketName,
-                Key = "videos/" + uniqueFileName,
+                Key = $"{folder}/{fileName}",
                 InputStream = fileStream,
-                ContentType = contentType,
+                ContentType = contentType
             };
 
             await _s3Client.PutObjectAsync(request);
-
-            // Trả về đường dẫn đúng của file trong S3
-            return $"https://{BucketName}.s3.ap-northeast-1.amazonaws.com/videos/{uniqueFileName}";
+            return $"https://{BucketName}.s3.amazonaws.com/{folder}/{fileName}";
         }
-
     }
 }
