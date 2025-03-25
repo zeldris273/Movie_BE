@@ -1,32 +1,34 @@
+using backend.DTOs;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
-using System.Collections.Generic;
+using System.Linq;
 
 public class SwaggerFileUploadOperationFilter : IOperationFilter
 {
     public void Apply(OpenApiOperation operation, OperationFilterContext context)
     {
-        if (operation.Parameters == null)
-            operation.Parameters = new List<OpenApiParameter>();
+        // Kiểm tra nếu endpoint sử dụng [FromForm] với MovieDTO
+        var fromFormParameter = context.MethodInfo
+            .GetParameters()
+            .FirstOrDefault(p => p.ParameterType == typeof(MovieDTO) && 
+                                p.GetCustomAttributes(typeof(FromFormAttribute), false).Length > 0);
 
-        operation.RequestBody = new OpenApiRequestBody
+        if (fromFormParameter != null)
         {
-            Content = new Dictionary<string, OpenApiMediaType>
+            // Sinh schema từ MovieDTO
+            var schema = context.SchemaGenerator.GenerateSchema(typeof(MovieDTO), context.SchemaRepository);
+
+            operation.RequestBody = new OpenApiRequestBody
             {
-                ["multipart/form-data"] = new OpenApiMediaType
+                Content = new Dictionary<string, OpenApiMediaType>
                 {
-                    Schema = new OpenApiSchema
+                    ["multipart/form-data"] = new OpenApiMediaType
                     {
-                        Type = "object",
-                        Properties = new Dictionary<string, OpenApiSchema>
-                        {
-                            ["videoFile"] = new OpenApiSchema { Type = "string", Format = "binary" },
-                            ["imageFiles"] = new OpenApiSchema { Type = "array", Items = new OpenApiSchema { Type = "string", Format = "binary" } }
-                        },
-                        Required = new HashSet<string> { "videoFile", "imageFiles" }
+                        Schema = schema
                     }
                 }
-            }
-        };
+            };
+        }
     }
 }

@@ -1,71 +1,77 @@
+using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using backend.Services;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using backend.Data;
+using backend.Models;
+using backend.DTOs;
+using backend.Mappers;
 
-namespace backend.Controllers
+[Route("api/movies")]
+[ApiController]
+public class MoviesController : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class MoviesController : ControllerBase
+    private readonly MovieDbContext _context;
+    private readonly IWebHostEnvironment _environment;
+
+    public MoviesController(MovieDbContext context, IWebHostEnvironment environment)
     {
-        private readonly S3Service _s3Service;
+        _context = context;
+        _environment = environment;
+    }
 
-        public MoviesController(S3Service s3Service)
+    [HttpPost("upload")]
+    public async Task<IActionResult> UploadMovie([FromForm] MovieDTO movieDto)
+    {
+        if (movieDto.VideoFile == null || movieDto.ImageFiles == null || movieDto.ImageFiles.Count != 2)
+    {
+        return BadRequest("Phải có 1 video và 2 ảnh.");
+    }
+
+        // Thư mục lưu trữ
+        var basePath = _environment.WebRootPath ?? _environment.ContentRootPath;
+        var uploadPath = Path.Combine(basePath, "uploads");
+        if (!Directory.Exists(uploadPath))
         {
-            _s3Service = s3Service;
+            Directory.CreateDirectory(uploadPath);
         }
 
-        [HttpPost("upload")]
-        public async Task<IActionResult> UploadMovie(
-     [FromForm] IFormFile videoFile,
-     [FromForm] List<IFormFile> imageFiles)
+        // Lưu video
+        var videoFileName = $"{Guid.NewGuid()}_{movieDto.VideoFile.FileName}";
+        var videoPath = Path.Combine(uploadPath, videoFileName);
+        using (var stream = new FileStream(videoPath, FileMode.Create))
         {
-            if (videoFile == null || videoFile.Length == 0)
-                return BadRequest("No video file uploaded");
+            await movieDto.VideoFile.CopyToAsync(stream);
+        }
 
-            if (imageFiles == null || imageFiles.Count == 0)
-                return BadRequest("No image files uploaded");
-
-            var allowedVideoExtensions = new[] { ".mp4", ".avi", ".mov" };
-            var allowedImageExtensions = new[] { ".jpg", ".jpeg", ".png" };
-
-            var videoExtension = Path.GetExtension(videoFile.FileName).ToLower();
-            if (!allowedVideoExtensions.Contains(videoExtension))
-                return BadRequest("Invalid video format. Only MP4, AVI, MOV are allowed.");
-
-            if (videoFile.Length > 500 * 1024 * 1024) // 500MB
-                return BadRequest("Video file size exceeds the maximum limit of 500MB.");
-
-            var videoUrl = await _s3Service.UploadFileAsync(
-                videoFile.OpenReadStream(),
-                videoFile.FileName,
-                "videos",
-                videoFile.ContentType
-            );
-
-            var imageUrls = new List<string>();
-            foreach (var imageFile in imageFiles)
+        // Lưu ảnh
+        var imageUrls = new List<string>();
+        foreach (var image in movieDto.ImageFiles)
+        {
+            var imageFileName = $"{Guid.NewGuid()}_{image.FileName}";
+            var imagePath = Path.Combine(uploadPath, imageFileName);
+            using (var stream = new FileStream(imagePath, FileMode.Create))
             {
-                var imageExtension = Path.GetExtension(imageFile.FileName).ToLower();
-                if (!allowedImageExtensions.Contains(imageExtension))
-                    return BadRequest($"Invalid image format: {imageFile.FileName}. Only JPG, JPEG, PNG are allowed.");
-
-                var imageUrl = await _s3Service.UploadFileAsync(
-                    imageFile.OpenReadStream(),
-                    imageFile.FileName,
-                    "images",
-                    imageFile.ContentType
-                );
-                imageUrls.Add(imageUrl);
+                await image.CopyToAsync(stream);
             }
-
-            return Ok(new { VideoUrl = videoUrl, ImageUrls = imageUrls });
+            imageUrls.Add($"/uploads/{imageFileName}");
         }
 
+        // Tạo đối tượng Movie
+       var newMovie = MovieMapper.ToMovie(movieDto, $"/uploads/{videoFileName}", imageUrls);
+
+        _context.Movies.Add(newMovie);
+        await _context.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = "Upload thành công!",
+            videoUrl = newMovie.VideoUrl,
+            imageUrls = imageUrls
+        });
     }
 }

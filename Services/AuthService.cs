@@ -51,7 +51,7 @@ namespace backend.Services
             using var conn = new MySqlConnection(_connectionString);
             await conn.OpenAsync();
 
-            var cmd = new MySqlCommand("SELECT Id, Email, PasswordHash FROM Users WHERE Email = @Email", conn);
+            var cmd = new MySqlCommand("SELECT Id, Email, PasswordHash, Role FROM Users WHERE Email = @Email", conn);
             cmd.Parameters.AddWithValue("@Email", email.Trim());
 
             using var reader = await cmd.ExecuteReaderAsync();
@@ -61,7 +61,9 @@ namespace backend.Services
                 {
                     Id = reader.GetInt32(reader.GetOrdinal("Id")),
                     Email = reader.GetString(reader.GetOrdinal("Email")),
-                    PasswordHash = reader.IsDBNull(reader.GetOrdinal("PasswordHash")) ? "" : reader.GetString(reader.GetOrdinal("PasswordHash"))
+                    PasswordHash = reader.IsDBNull(reader.GetOrdinal("PasswordHash")) ? "" : reader.GetString(reader.GetOrdinal("PasswordHash")),
+                    Role = reader.IsDBNull(reader.GetOrdinal("Role")) ? "User" : reader.GetString(reader.GetOrdinal("Role")),
+
                 };
 
                 if (BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
@@ -78,7 +80,8 @@ namespace backend.Services
             var claims = new[]
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, user.Email)
+                new Claim(ClaimTypes.Name, user.Email),
+                 new Claim(ClaimTypes.Role, user.Role)
             };
 
             var token = new JwtSecurityToken(

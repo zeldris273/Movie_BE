@@ -1,6 +1,8 @@
 using Amazon.S3;
+using backend.Data;
 using backend.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
@@ -31,6 +33,11 @@ builder.Services.AddSingleton<IAmazonS3>(sp =>
         s3Config
     );
 });
+
+builder.Services.AddDbContext<MovieDbContext>(options =>
+    options.UseMySql(builder.Configuration.GetConnectionString("DefaultConnection"),
+    new MySqlServerVersion(new Version(8, 0, 29))));
+
 
 builder.Services.AddSwaggerGen(c =>
 {
