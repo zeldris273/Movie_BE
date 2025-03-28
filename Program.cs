@@ -6,8 +6,23 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.AspNetCore.Server.IISIntegration;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Tăng giới hạn kích thước request body (500MB)
+builder.Services.Configure<IISServerOptions>(options =>
+{
+    options.MaxRequestBodySize = 1024 * 1024 * 500; // 500MB
+});
+
+builder.Services.Configure<KestrelServerOptions>(options =>
+{
+    options.Limits.MaxRequestBodySize = 1024 * 1024 * 500; // 500MB
+    options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(10); // Tăng timeout lên 10 phút
+    options.Limits.RequestHeadersTimeout = TimeSpan.FromMinutes(10);
+});
 
 // Thêm dịch vụ controllers
 builder.Services.AddControllers();
@@ -15,10 +30,9 @@ builder.Services.AddControllers();
 // Thêm Swagger
 builder.Services.AddSwaggerGen();
 
-// Đăng ký AuthService (chỉ cần một lần, loại bỏ trùng lặp)
+// Đăng ký AuthService
 builder.Services.AddScoped<AuthService>();
 
-// Đăng ký S3Service và IAmazonS3 cho S3 Express One Zone
 // Đăng ký S3Service và IAmazonS3
 builder.Services.AddSingleton<IAmazonS3>(sp =>
 {
@@ -26,30 +40,27 @@ builder.Services.AddSingleton<IAmazonS3>(sp =>
     {
         RegionEndpoint = Amazon.RegionEndpoint.APNortheast1 // ap-northeast-1 (Tokyo)
     };
-
     return new AmazonS3Client(
         builder.Configuration["AWS:AccessKey"],
         builder.Configuration["AWS:SecretKey"],
-        s3Config
-    );
-});
-
-builder.Services.AddDbContext<MovieDbContext>(options =>
-    options.UseMySql(builder.Configuration.GetConnectionString("DefaultConnection"),
-    new MySqlServerVersion(new Version(8, 0, 29))));
-
-
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Movie API", Version = "v1" });
-
-    // Cấu hình hỗ trợ upload file
-    c.OperationFilter<SwaggerFileUploadOperationFilter>();
+        s3Config);
 });
 
 builder.Services.AddScoped<S3Service>();
 
-// Thêm MemoryCache (đã đúng)
+// Đăng ký DbContext
+builder.Services.AddDbContext<MovieDbContext>(options =>
+    options.UseMySql(builder.Configuration.GetConnectionString("DefaultConnection"),
+        new MySqlServerVersion(new Version(8, 0, 29))));
+
+// Cấu hình Swagger
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Movie API", Version = "v1" });
+    c.OperationFilter<SwaggerFileUploadOperationFilter>();
+});
+
+// Thêm MemoryCache
 builder.Services.AddMemoryCache();
 
 // Thêm cấu hình xác thực JWT
@@ -84,19 +95,11 @@ var app = builder.Build();
 
 // Middleware pipeline
 app.UseRouting();
-
-// Thêm CORS trước Authentication/Authorization
 app.UseCors("AllowAll");
-
-// Thêm middleware xác thực và phân quyền
 app.UseAuthentication();
 app.UseAuthorization();
-
-// Thêm Swagger
 app.UseSwagger();
 app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "My API V1"));
-
-// Map controllers
 app.MapControllers();
 
 app.Run();

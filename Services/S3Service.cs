@@ -1,8 +1,8 @@
 using System;
-using System.IO;
 using System.Threading.Tasks;
 using Amazon.S3;
 using Amazon.S3.Model;
+using Microsoft.AspNetCore.Http;
 
 namespace backend.Services
 {
@@ -16,18 +16,37 @@ namespace backend.Services
             _s3Client = s3Client;
         }
 
-        public async Task<string> UploadFileAsync(Stream fileStream, string fileName, string folder, string contentType)
+        public async Task<string> UploadFileAsync(IFormFile file, string folder)
         {
+            if (file == null || file.Length == 0)
+            {
+                throw new ArgumentException("File không hợp lệ.");
+            }
+
+            // Tạo tên file duy nhất
+            var fileName = file.FileName;
+            var key = $"{folder}/{fileName}";
+
+            // Lấy ContentType từ IFormFile
+            var contentType = file.ContentType;
+
+            // Mở stream từ IFormFile
+            using var stream = file.OpenReadStream();
+
+            // Tạo request để upload lên S3
             var request = new PutObjectRequest
             {
                 BucketName = BucketName,
-                Key = $"{folder}/{fileName}",
-                InputStream = fileStream,
+                Key = key,
+                InputStream = stream,
                 ContentType = contentType
             };
 
+            // Upload file lên S3
             await _s3Client.PutObjectAsync(request);
-            return $"https://{BucketName}.s3.amazonaws.com/{folder}/{fileName}";
+
+            // Trả về URL của file trên S3
+            return $"https://{BucketName}.s3.amazonaws.com/{key}";
         }
     }
 }

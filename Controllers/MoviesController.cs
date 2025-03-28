@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -10,68 +8,77 @@ using backend.Data;
 using backend.Models;
 using backend.DTOs;
 using backend.Mappers;
+using backend.Services;
 
 [Route("api/movies")]
 [ApiController]
 public class MoviesController : ControllerBase
 {
     private readonly MovieDbContext _context;
-    private readonly IWebHostEnvironment _environment;
+    private readonly S3Service _s3Service;
 
-    public MoviesController(MovieDbContext context, IWebHostEnvironment environment)
+    public MoviesController(MovieDbContext context, S3Service s3Service)
     {
         _context = context;
-        _environment = environment;
+        _s3Service = s3Service;
     }
 
     [HttpPost("upload")]
+    [RequestFormLimits(MultipartBodyLengthLimit = 1024 * 1024 * 500)] // 500MB
+    [RequestSizeLimit(1024 * 1024 * 500)] // 500MB
     public async Task<IActionResult> UploadMovie([FromForm] MovieDTO movieDto)
     {
-        if (movieDto.VideoFile == null || movieDto.ImageFiles == null || movieDto.ImageFiles.Count != 2)
-    {
-        return BadRequest("Phải có 1 video và 2 ảnh.");
-    }
-
-        // Thư mục lưu trữ
-        var basePath = _environment.WebRootPath ?? _environment.ContentRootPath;
-        var uploadPath = Path.Combine(basePath, "uploads");
-        if (!Directory.Exists(uploadPath))
+        try
         {
-            Directory.CreateDirectory(uploadPath);
-        }
-
-        // Lưu video
-        var videoFileName = $"{Guid.NewGuid()}_{movieDto.VideoFile.FileName}";
-        var videoPath = Path.Combine(uploadPath, videoFileName);
-        using (var stream = new FileStream(videoPath, FileMode.Create))
-        {
-            await movieDto.VideoFile.CopyToAsync(stream);
-        }
-
-        // Lưu ảnh
-        var imageUrls = new List<string>();
-        foreach (var image in movieDto.ImageFiles)
-        {
-            var imageFileName = $"{Guid.NewGuid()}_{image.FileName}";
-            var imagePath = Path.Combine(uploadPath, imageFileName);
-            using (var stream = new FileStream(imagePath, FileMode.Create))
+            // Kiểm tra dữ liệu đầu vào
+            if (movieDto == null)
             {
-                await image.CopyToAsync(stream);
+                return BadRequest("Dữ liệu không hợp lệ.");
             }
-            imageUrls.Add($"/uploads/{imageFileName}");
+
+            if (string.IsNullOrEmpty(movieDto.Title) || string.IsNullOrEmpty(movieDto.Status) || string.IsNullOrEmpty(movieDto.Type))
+            {
+                return BadRequest("Title, Status và Type là bắt buộc.");
+            }
+
+            if (movieDto.VideoFile == null || movieDto.ImageFiles == null || movieDto.ImageFiles.Count != 2)
+            {
+                return BadRequest("Phải có 1 video và đúng 2 ảnh.");
+            }
+
+            // Upload video lên S3
+            var videoUrl = await _s3Service.UploadFileAsync(movieDto.VideoFile, "videos");
+
+            // Upload ảnh lên S3
+            var imageUrls = new List<string>();
+            foreach (var image in movieDto.ImageFiles)
+            {
+                var imageUrl = await _s3Service.UploadFileAsync(image, "images");
+                imageUrls.Add(imageUrl);
+            }
+
+            // Tạo đối tượng Movie
+            var newMovie = MovieMapper.ToMovie(movieDto, videoUrl, imageUrls);
+
+            // Lưu vào database
+            _context.Movies.Add(newMovie);
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "Upload thành công!",
+                videoUrl = newMovie.VideoUrl,
+                imageUrls = imageUrls
+            });
         }
-
-        // Tạo đối tượng Movie
-       var newMovie = MovieMapper.ToMovie(movieDto, $"/uploads/{videoFileName}", imageUrls);
-
-        _context.Movies.Add(newMovie);
-        await _context.SaveChangesAsync();
-
-        return Ok(new
+        catch (Exception ex)
         {
-            message = "Upload thành công!",
-            videoUrl = newMovie.VideoUrl,
-            imageUrls = imageUrls
-        });
+            return StatusCode(500, new
+            {
+                message = "Lỗi upload",
+                error = ex.Message,
+                stackTrace = ex.StackTrace
+            });
+        }
     }
 }
