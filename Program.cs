@@ -8,6 +8,7 @@ using Microsoft.OpenApi.Models;
 using System.Text;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.Server.IISIntegration;
+using Microsoft.AspNetCore.Http.Features;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +23,11 @@ builder.Services.Configure<KestrelServerOptions>(options =>
     options.Limits.MaxRequestBodySize = 1024 * 1024 * 500; // 500MB
     options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(10); // Tăng timeout lên 10 phút
     options.Limits.RequestHeadersTimeout = TimeSpan.FromMinutes(10);
+});
+
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 1024 * 1024 * 500; // 500MB
 });
 
 // Thêm dịch vụ controllers
@@ -58,6 +64,8 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Movie API", Version = "v1" });
     c.OperationFilter<SwaggerFileUploadOperationFilter>();
+
+    
 });
 
 // Thêm MemoryCache

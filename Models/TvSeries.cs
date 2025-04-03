@@ -1,9 +1,5 @@
 using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace backend.Models
 {
@@ -12,12 +8,22 @@ namespace backend.Models
         [Key]
         public int Id { get; set; }
 
-        [ForeignKey("Movie")]
-        public int MovieId { get; set; }
+        [Required]
+        public string Title { get; set; }
 
-        public int TotalSeasons { get; set; }
-        public int TotalEpisodes { get; set; }
+        public string Overview { get; set; }
 
-        public Movie Movie { get; set; }
+        public string Genres { get; set; } 
+
+        [Required]
+        public string Status { get; set; } // Ongoing, Completed, Canceled
+
+        public DateTime? ReleaseDate { get; set; }
+
+        public string Studio { get; set; }
+
+        public string Director { get; set; }
+
+        public string ImageUrl { get; set; } // Ảnh đại diện (poster)
     }
 }

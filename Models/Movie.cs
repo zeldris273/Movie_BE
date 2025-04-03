@@ -1,8 +1,5 @@
 using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace backend.Models
 {
@@ -14,25 +11,21 @@ namespace backend.Models
         [Required]
         public string Title { get; set; }
 
-        public decimal Rating { get; set; }
-
         public string Overview { get; set; }
 
-        public string Genres { get; set; } // Lưu dưới dạng JSON hoặc chuỗi phân cách bởi dấu phẩy
+        public string Genres { get; set; } // JSON hoặc chuỗi phân tách bằng dấu phẩy
 
         [Required]
-        public string Status { get; set; }
+        public string Status { get; set; } // Upcoming, Released, Canceled
 
         public DateTime? ReleaseDate { get; set; }
 
-        [Required]
-        public string Type { get; set; } // 'movie' hoặc 'tv_series'
+        public string Studio { get; set; }
 
-        public string? Studio { get; set; }
+        public string Director { get; set; }
 
-        public string? Director { get; set; }
-        public string VideoUrl { get; set; } // Đường dẫn lưu trữ video
+        public string ImageUrl { get; set; } // Ảnh đại diện (poster)
 
-        public string ImageUrls { get; set; } // Lưu danh sách ảnh dưới dạng JSON hoặc CSV
+        public string VideoUrl { get; set; } // Link video từ S3
     }
 }
