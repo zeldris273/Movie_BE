@@ -38,15 +38,15 @@ namespace backend.Controllers
             return Ok(movie);
         }
 
-        [HttpPost]
-        public IActionResult CreateMovie([FromBody] Movie movie)
-        {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
+        // [HttpPost]
+        // public IActionResult CreateMovie([FromBody] Movie movie)
+        // {
+        //     if (!ModelState.IsValid) return BadRequest(ModelState);
             
-            _context.Movies.Add(movie);
-            _context.SaveChanges();
-            return CreatedAtAction(nameof(GetMovie), new { id = movie.Id }, movie);
-        }
+        //     _context.Movies.Add(movie);
+        //     _context.SaveChanges();
+        //     return CreatedAtAction(nameof(GetMovie), new { id = movie.Id }, movie);
+        // }
 
         [HttpPut("{id}")]
         public IActionResult UpdateMovie(int id, [FromBody] Movie updatedMovie)

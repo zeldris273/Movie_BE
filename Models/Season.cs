@@ -4,19 +4,17 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace backend.Models
 {
-    public class Season
+   public class Season
     {
         [Key]
         public int Id { get; set; }
 
-        [Required]
-        [ForeignKey("TvSeries")]
         public int TvSeriesId { get; set; }
+
+        public TvSeries TvSeries { get; set; }
 
         public int SeasonNumber { get; set; }
 
-        public DateTime? ReleaseDate { get; set; }
-
-        public TvSeries TvSeries { get; set; }
+        public List<Episode> Episodes { get; set; } = new List<Episode>();
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 namespace backend.Models
@@ -13,10 +14,10 @@ namespace backend.Models
 
         public string Overview { get; set; }
 
-        public string Genres { get; set; } 
+        public string Genres { get; set; }
 
         [Required]
-        public string Status { get; set; } // Ongoing, Completed, Canceled
+        public string Status { get; set; }
 
         public DateTime? ReleaseDate { get; set; }
 
@@ -24,6 +25,11 @@ namespace backend.Models
 
         public string Director { get; set; }
 
-        public string ImageUrl { get; set; } // Ảnh đại diện (poster)
+        public string ImageUrl { get; set; } 
+
+        public string BackdropUrl { get; set; }
+
+
+        public List<Season> Seasons { get; set; } = new List<Season>();
     }
 }
