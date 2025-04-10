@@ -31,17 +31,35 @@ namespace backend.Data
             });
 
             // Cấu hình mối quan hệ cho TvSeries, Season, Episode
-            modelBuilder.Entity<Season>()
-                .HasOne(s => s.TvSeries)
-                .WithMany()
-                .HasForeignKey(s => s.TvSeriesId)
-                .OnDelete(DeleteBehavior.Cascade);
+           modelBuilder.Entity<Season>(entity =>
+            {
+                entity.ToTable("seasons");
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.TvSeriesId).HasColumnName("TvSeriesId");
+                entity.Property(e => e.SeasonNumber).HasColumnName("SeasonNumber");
 
-            modelBuilder.Entity<Episode>()
-                .HasOne(e => e.Season)
-                .WithMany()
-                .HasForeignKey(e => e.SeasonId)
-                .OnDelete(DeleteBehavior.Cascade);
+                // Cấu hình quan hệ giữa Season và TvSeries
+                entity.HasOne(s => s.TvSeries)
+                      .WithMany(t => t.Seasons)
+                      .HasForeignKey(s => s.TvSeriesId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Cấu hình ánh xạ cho Episode
+            modelBuilder.Entity<Episode>(entity =>
+            {
+                entity.ToTable("episodes");
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.SeasonId).HasColumnName("season_id");
+                entity.Property(e => e.EpisodeNumber).HasColumnName("episode_number");
+                entity.Property(e => e.VideoUrl).HasColumnName("video_url");
+
+                // Cấu hình quan hệ giữa Episode và Season
+                entity.HasOne(e => e.Season)
+                      .WithMany(s => s.Episodes)
+                      .HasForeignKey(e => e.SeasonId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
         }
     }
 }

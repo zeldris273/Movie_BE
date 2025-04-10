@@ -25,52 +25,53 @@ namespace backend.Controllers
             _s3Service = s3Service;
         }
 
-        // [HttpGet]
-        // public IActionResult GetAllTvSeries()
-        // {
-        //     var series = _context.TvSeries
-        //         .Select(s => new TvSeriesResponseDTO
-        //         {
-        //             Id = s.Id,
-        //             Title = s.Title,
-        //             Overview = s.Overview,
-        //             Genres = s.Genres,
-        //             Status = s.Status,
-        //             ReleaseDate = s.ReleaseDate,
-        //             Studio = s.Studio,
-        //             Director = s.Director,
-        //             ImageUrl = s.ImageUrl,
-        //             BackdropUrl = s.BackdropUrl
-        //         })
-        //         .ToList();
-        //     return Ok(series);
-        // }
+        [HttpGet]
+        public IActionResult GetAllTvSeries()
+        {
+            var series = _context.TvSeries
+                .Select(s => new TvSeriesResponseDTO
+                {
+                    Id = s.Id,
+                    Title = s.Title,
+                    Overview = s.Overview,
+                    Genres = s.Genres,
+                    Status = s.Status,
+                    ReleaseDate = s.ReleaseDate,
+                    Studio = s.Studio,
+                    Director = s.Director,
+                    ImageUrl = s.ImageUrl,
+                    BackdropUrl = s.BackdropUrl
+                })
+                .ToList();
+            return Ok(series);
+        }
 
-        // [HttpGet("{id}")]
-        // public IActionResult GetTvSeries(int id)
-        // {
-        //     var series = _context.TvSeries.Find(id);
-        //     if (series == null) return NotFound();
+        [HttpGet("{id}")]
+        public IActionResult GetTvSeries(int id)
+        {
+            var series = _context.TvSeries.Find(id);
+            if (series == null) return NotFound();
 
-        //     var response = new TvSeriesResponseDTO
-        //     {
-        //         Id = series.Id,
-        //         Title = series.Title,
-        //         Overview = series.Overview,
-        //         Genres = s.Genres,
-        //         Status = series.Status,
-        //         ReleaseDate = series.ReleaseDate,
-        //         Studio = series.Studio,
-        //         Director = series.Director,
-        //         ImageUrl = series.ImageUrl,
-        //         BackdropUrl = series.BackdropUrl
-        //     };
-        //     return Ok(response);
-        // }
+            var response = new TvSeriesResponseDTO
+            {
+                Id = series.Id,
+                Title = series.Title,
+                Overview = series.Overview,
+                Rating = series.Rating,
+                Genres = series.Genres,
+                Status = series.Status,
+                ReleaseDate = series.ReleaseDate,
+                Studio = series.Studio,
+                Director = series.Director,
+                ImageUrl = series.ImageUrl,
+                BackdropUrl = series.BackdropUrl
+            };
+            return Ok(response);
+        }
 
-        [HttpPost("upload")]
+        [HttpPost("create")]
         [Authorize(Roles = "admin")]
-        public async Task<IActionResult> UploadTvSeries([FromForm] TvSeriesUploadDTO model)
+        public async Task<IActionResult> CreateTvSeries([FromForm] TvSeriesUploadDTO model)
         {
             try
             {
@@ -95,6 +96,7 @@ namespace backend.Controllers
                 string backdropFolder = $"tvseries/{model.Title}/backdrop";
                 string backdropImageUrl = await _s3Service.UploadFileAsync(model.BackdropImageFile, backdropFolder);
 
+                // Tạo TV series mới
                 var series = new TvSeries
                 {
                     Title = model.Title,
@@ -110,6 +112,16 @@ namespace backend.Controllers
                 _context.TvSeries.Add(series);
                 await _context.SaveChangesAsync();
 
+                // Tự động tạo Season 1 cho TV series
+                var season = new Season
+                {
+                    TvSeriesId = series.Id, // Gán TvSeriesId từ TV series vừa tạo
+                    SeasonNumber = 1
+                };
+                _context.Seasons.Add(season);
+                await _context.SaveChangesAsync();
+
+                // Trả về response
                 var response = new TvSeriesResponseDTO
                 {
                     Id = series.Id,
@@ -179,34 +191,72 @@ namespace backend.Controllers
         {
             try
             {
+                // Kiểm tra dữ liệu đầu vào
                 if (model.SeasonId <= 0)
-                    return BadRequest(new { error = "SeasonId is required and must be greater than 0" });
+                    return BadRequest(new { error = "TvSeriesId is required and must be greater than 0" });
                 if (model.EpisodeNumber <= 0)
                     return BadRequest(new { error = "EpisodeNumber is required and must be greater than 0" });
                 if (model.VideoFile == null)
                     return BadRequest(new { error = "VideoFile is required" });
 
-                var season = await _context.Seasons.FindAsync(model.SeasonId);
-                if (season == null)
-                    return NotFound(new { error = "Season not found" });
+                // Kiểm tra TV series có tồn tại không
+                var tvSeries = await _context.TvSeries.FindAsync(model.TvSeriesId);
+                if (tvSeries == null)
+                    return NotFound(new { error = "TV series not found" });
 
+                // Kiểm tra season
+                Season season;
+                if (model.SeasonId > 0)
+                {
+                    // Nếu có SeasonId, kiểm tra season có tồn tại không
+                    season = await _context.Seasons.FindAsync(model.SeasonId);
+                    if (season == null)
+                        return NotFound(new { error = "Season not found" });
+                    if (season.TvSeriesId != model.TvSeriesId)
+                        return BadRequest(new { error = "Season does not belong to the specified TV series" });
+                }
+                else
+                {
+                    // Nếu không có SeasonId, kiểm tra xem TV series đã có season nào chưa
+                    season = await _context.Seasons
+                        .Where(s => s.TvSeriesId == model.TvSeriesId)
+                        .OrderBy(s => s.SeasonNumber)
+                        .FirstOrDefaultAsync();
+
+                    if (season == null)
+                    {
+                        // Nếu chưa có season, tạo Season 1
+                        season = new Season
+                        {
+                            TvSeriesId = model.TvSeriesId,
+                            SeasonNumber = 1
+                        };
+                        _context.Seasons.Add(season);
+                        await _context.SaveChangesAsync();
+                    }
+                }
+
+                // Kiểm tra episode đã tồn tại chưa
                 var existingEpisode = await _context.Episodes
-                    .FirstOrDefaultAsync(e => e.SeasonId == model.SeasonId && e.EpisodeNumber == model.EpisodeNumber);
+                    .FirstOrDefaultAsync(e => e.SeasonId == season.Id && e.EpisodeNumber == model.EpisodeNumber);
                 if (existingEpisode != null)
-                    return BadRequest(new { error = $"Episode {model.EpisodeNumber} for Season {model.SeasonId} already exists" });
+                    return BadRequest(new { error = $"Episode {model.EpisodeNumber} for Season {season.Id} already exists" });
 
+                // Upload video lên S3
                 string videoFolder = $"tvseries/{season.TvSeriesId}/season-{season.SeasonNumber}/episode-{model.EpisodeNumber}";
                 string videoUrl = await _s3Service.UploadFileAsync(model.VideoFile, videoFolder);
 
+                // Tạo episode mới
                 var episode = new Episode
                 {
-                    SeasonId = model.SeasonId,
+                    SeasonId = season.Id,
                     EpisodeNumber = model.EpisodeNumber,
                     VideoUrl = videoUrl
                 };
                 _context.Episodes.Add(episode);
                 await _context.SaveChangesAsync();
 
+                // Trả về response
                 var response = new EpisodeResponseDTO
                 {
                     Id = episode.Id,

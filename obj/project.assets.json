@@ -4701,11 +4701,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\MovieApp\\backend\\backend.csproj",
+      "projectUniqueName": "D:\\Backup\\Code\\MovieApp\\backend\\backend.csproj",
       "projectName": "backend",
-      "projectPath": "D:\\MovieApp\\backend\\backend.csproj",
+      "projectPath": "D:\\Backup\\Code\\MovieApp\\backend\\backend.csproj",
       "packagesPath": "C:\\Users\\nvh\\.nuget\\packages\\",
-      "outputPath": "D:\\MovieApp\\backend\\obj\\",
+      "outputPath": "D:\\Backup\\Code\\MovieApp\\backend\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\nvh\\AppData\\Roaming\\NuGet\\NuGet.Config"

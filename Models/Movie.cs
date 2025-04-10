@@ -25,6 +25,7 @@ namespace backend.Models
         public string Director { get; set; }
 
         public string ImageUrl { get; set; } // Ảnh đại diện (poster)
+        public double? Rating { get; set; }
 
         public string VideoUrl { get; set; } // Link video từ S3
     }

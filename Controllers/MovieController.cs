@@ -15,7 +15,7 @@ namespace backend.Controllers
     public class MovieController : ControllerBase
     {
         private readonly MovieDbContext _context;
-        private readonly S3Service _s3Service; // Inject S3Service
+        private readonly S3Service _s3Service;
 
         public MovieController(MovieDbContext context, S3Service s3Service)
         {
@@ -23,65 +23,9 @@ namespace backend.Controllers
             _s3Service = s3Service;
         }
 
-        [HttpGet]
-        public IActionResult GetAllMovies()
-        {
-            var movies = _context.Movies.ToList();
-            return Ok(movies);
-        }
-
-        [HttpGet("{id}")]
-        public IActionResult GetMovie(int id)
-        {
-            var movie = _context.Movies.Find(id);
-            if (movie == null) return NotFound();
-            return Ok(movie);
-        }
-
-        // [HttpPost]
-        // public IActionResult CreateMovie([FromBody] Movie movie)
-        // {
-        //     if (!ModelState.IsValid) return BadRequest(ModelState);
-            
-        //     _context.Movies.Add(movie);
-        //     _context.SaveChanges();
-        //     return CreatedAtAction(nameof(GetMovie), new { id = movie.Id }, movie);
-        // }
-
-        [HttpPut("{id}")]
-        public IActionResult UpdateMovie(int id, [FromBody] Movie updatedMovie)
-        {
-            var movie = _context.Movies.Find(id);
-            if (movie == null) return NotFound();
-
-            movie.Title = updatedMovie.Title;
-            movie.Overview = updatedMovie.Overview;
-            movie.Genres = updatedMovie.Genres;
-            movie.Status = updatedMovie.Status;
-            movie.ReleaseDate = updatedMovie.ReleaseDate;
-            movie.Studio = updatedMovie.Studio;
-            movie.Director = updatedMovie.Director;
-            movie.ImageUrl = updatedMovie.ImageUrl;
-            movie.VideoUrl = updatedMovie.VideoUrl;
-
-            _context.SaveChanges();
-            return NoContent();
-        }
-
-        [HttpDelete("{id}")]
-        public IActionResult DeleteMovie(int id)
-        {
-            var movie = _context.Movies.Find(id);
-            if (movie == null) return NotFound();
-
-            _context.Movies.Remove(movie);
-            _context.SaveChanges();
-            return NoContent();
-        }
-
-        [HttpPost("upload")]
+          [HttpPost("create")]
         [Authorize(Roles = "admin")]
-        public async Task<IActionResult> Upload([FromForm] MovieDTO model)
+        public async Task<IActionResult> Create([FromForm] MovieDTO model)
         {
             try
             {
@@ -141,5 +85,54 @@ namespace backend.Controllers
                 return StatusCode(500, new { error = "Upload failed", details = ex.Message });
             }
         }
+
+        [HttpGet]
+        public IActionResult GetAllMovies()
+        {
+            var movies = _context.Movies.ToList();
+            return Ok(movies);
+        }
+
+        [HttpGet("{id}")]
+        public IActionResult GetMovie(int id)
+        {
+            var movie = _context.Movies.Find(id);
+            if (movie == null) return NotFound();
+            return Ok(movie);
+        }
+
+
+        [HttpPut("{id}")]
+        public IActionResult UpdateMovie(int id, [FromBody] Movie updatedMovie)
+        {
+            var movie = _context.Movies.Find(id);
+            if (movie == null) return NotFound();
+
+            movie.Title = updatedMovie.Title;
+            movie.Overview = updatedMovie.Overview;
+            movie.Genres = updatedMovie.Genres;
+            movie.Status = updatedMovie.Status;
+            movie.ReleaseDate = updatedMovie.ReleaseDate;
+            movie.Studio = updatedMovie.Studio;
+            movie.Director = updatedMovie.Director;
+            movie.ImageUrl = updatedMovie.ImageUrl;
+            movie.VideoUrl = updatedMovie.VideoUrl;
+
+            _context.SaveChanges();
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        public IActionResult DeleteMovie(int id)
+        {
+            var movie = _context.Movies.Find(id);
+            if (movie == null) return NotFound();
+
+            _context.Movies.Remove(movie);
+            _context.SaveChanges();
+            return NoContent();
+        }
+
+      
     }
 }

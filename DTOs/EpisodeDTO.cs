@@ -12,6 +12,7 @@ namespace backend.DTOs
 
     public class EpisodeUploadDTO
     {
+        public int TvSeriesId { get; set; }
         public int SeasonId { get; set; }
         public int EpisodeNumber { get; set; }
         public IFormFile VideoFile { get; set; }

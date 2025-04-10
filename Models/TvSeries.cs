@@ -28,7 +28,7 @@ namespace backend.Models
         public string ImageUrl { get; set; } 
 
         public string BackdropUrl { get; set; }
-
+        public double? Rating { get; set; }
 
         public List<Season> Seasons { get; set; } = new List<Season>();
     }
