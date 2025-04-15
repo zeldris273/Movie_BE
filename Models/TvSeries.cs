@@ -30,6 +30,8 @@ namespace backend.Models
         public string BackdropUrl { get; set; }
         public double? Rating { get; set; }
 
+        public string TrailerUrl { get; set; }
+
         public List<Season> Seasons { get; set; } = new List<Season>();
     }
 }

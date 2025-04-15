@@ -64,7 +64,8 @@ namespace backend.Controllers
                 Studio = series.Studio,
                 Director = series.Director,
                 ImageUrl = series.ImageUrl,
-                BackdropUrl = series.BackdropUrl
+                BackdropUrl = series.BackdropUrl,
+                TrailerUrl = series.TrailerUrl
             };
             return Ok(response);
         }
@@ -272,30 +273,30 @@ namespace backend.Controllers
             }
         }
 
-        [HttpPut("{id}")]
-        [Authorize(Roles = "admin")]
-        public async Task<IActionResult> UpdateTvSeries(int id, [FromBody] TvSeriesDTO updatedSeriesDto)
-        {
-            var series = _context.TvSeries.Find(id);
-            if (series == null) return NotFound();
+        // [HttpPut("{id}")]
+        // [Authorize(Roles = "admin")]
+        // public async Task<IActionResult> UpdateTvSeries(int id, [FromBody] TvSeriesDTO updatedSeriesDto)
+        // {
+        //     var series = _context.TvSeries.Find(id);
+        //     if (series == null) return NotFound();
 
-            var validStatuses = new[] { "Ongoing", "Completed", "Canceled" };
-            if (!validStatuses.Contains(updatedSeriesDto.Status))
-            {
-                return BadRequest(new { error = "Invalid Status. Must be 'Ongoing', 'Completed', or 'Canceled'." });
-            }
+        //     var validStatuses = new[] { "Ongoing", "Completed", "Canceled" };
+        //     if (!validStatuses.Contains(updatedSeriesDto.Status))
+        //     {
+        //         return BadRequest(new { error = "Invalid Status. Must be 'Ongoing', 'Completed', or 'Canceled'." });
+        //     }
 
-            series.Title = updatedSeriesDto.Title;
-            series.Overview = updatedSeriesDto.Overview;
-            series.Genres = updatedSeriesDto.Genres;
-            series.Status = updatedSeriesDto.Status;
-            series.ReleaseDate = updatedSeriesDto.ReleaseDate;
-            series.Studio = updatedSeriesDto.Studio;
-            series.Director = updatedSeriesDto.Director;
+        //     series.Title = updatedSeriesDto.Title;
+        //     series.Overview = updatedSeriesDto.Overview;
+        //     series.Genres = updatedSeriesDto.Genres;
+        //     series.Status = updatedSeriesDto.Status;
+        //     series.ReleaseDate = updatedSeriesDto.ReleaseDate;
+        //     series.Studio = updatedSeriesDto.Studio;
+        //     series.Director = updatedSeriesDto.Director;
 
-            await _context.SaveChangesAsync();
-            return NoContent();
-        }
+        //     await _context.SaveChangesAsync();
+        //     return NoContent();
+        // }
 
         [HttpGet("{id}/seasons")]
         public IActionResult GetSeasonsByTvSeries(int id)
@@ -314,6 +315,51 @@ namespace backend.Controllers
                 .ToList();
 
             return Ok(seasons);
+        }
+
+        [HttpGet("seasons/{seasonId}/episodes")]
+        public IActionResult GetEpisodesBySeason(int seasonId)
+        {
+            // Kiểm tra season có tồn tại không
+            var season = _context.Seasons.Find(seasonId);
+            if (season == null)
+                return NotFound(new { error = "Season not found" });
+
+            // Lấy danh sách episodes của season
+            var episodes = _context.Episodes
+                .Where(e => e.SeasonId == seasonId)
+                .Select(e => new EpisodeResponseDTO
+                {
+                    Id = e.Id,
+                    SeasonId = e.SeasonId,
+                    EpisodeNumber = e.EpisodeNumber,
+                    VideoUrl = e.VideoUrl
+                })
+                .ToList();
+
+            return Ok(episodes);
+        }
+
+        [HttpGet("episodes/{episodeId}")]
+        public IActionResult GetEpisode(int episodeId)
+        {
+            var episode = _context.Episodes
+                .Where(e => e.Id == episodeId)
+                .Select(e => new EpisodeResponseDTO
+                {
+                    Id = e.Id,
+                    SeasonId = e.SeasonId,
+                    EpisodeNumber = e.EpisodeNumber,
+                    VideoUrl = e.VideoUrl
+                })
+                .FirstOrDefault();
+
+            if (episode == null)
+            {
+                return NotFound(new { error = "Episode not found" });
+            }
+
+            return Ok(episode);
         }
 
         // [HttpDelete("{id}")]

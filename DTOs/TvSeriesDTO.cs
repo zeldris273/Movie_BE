@@ -29,6 +29,7 @@ namespace backend.DTOs
         public string Director { get; set; }
         public string ImageUrl { get; set; }
         public string BackdropUrl { get; set; }
+        public string TrailerUrl { get; set; }
     }
 
     // DTO cho upload TV series với 2 ảnh
