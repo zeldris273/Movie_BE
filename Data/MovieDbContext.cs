@@ -65,13 +65,11 @@ namespace backend.Data
             {
                 entity.ToTable("comments");
 
-                // Chỉ định khóa chính
                 entity.HasKey(c => c.Id);
 
-                // Ánh xạ các cột
                 entity.Property(e => e.Id)
                       .HasColumnName("id")
-                      .ValueGeneratedOnAdd(); // Đảm bảo id tự động tăng
+                      .ValueGeneratedOnAdd();
 
                 entity.Property(e => e.UserId)
                       .HasColumnName("user_id");
@@ -85,6 +83,9 @@ namespace backend.Data
                 entity.Property(e => e.EpisodeId)
                       .HasColumnName("episode_id");
 
+                entity.Property(e => e.ParentCommentId)
+                      .HasColumnName("parent_comment_id"); // Ánh xạ cột mới
+
                 entity.Property(e => e.CommentText)
                       .HasColumnName("comment_text");
 
@@ -97,25 +98,34 @@ namespace backend.Data
                 entity.Property(e => e.UpdatedAt)
                       .HasColumnName("updated_at");
 
-                // Cấu hình quan hệ
+                // Quan hệ với User
                 entity.HasOne(c => c.User)
                       .WithMany(u => u.Comments)
                       .HasForeignKey(c => c.UserId)
                       .OnDelete(DeleteBehavior.Cascade);
 
+                // Quan hệ với Movie
                 entity.HasOne(c => c.Movie)
                       .WithMany(m => m.Comments)
                       .HasForeignKey(c => c.MovieId)
                       .OnDelete(DeleteBehavior.Cascade);
 
+                // Quan hệ với TvSeries
                 entity.HasOne(c => c.TvSeries)
                       .WithMany(t => t.Comments)
                       .HasForeignKey(c => c.TvSeriesId)
                       .OnDelete(DeleteBehavior.Cascade);
 
+                // Quan hệ với Episode
                 entity.HasOne(c => c.Episode)
                       .WithMany(e => e.Comments)
                       .HasForeignKey(c => c.EpisodeId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                // Quan hệ tự tham chiếu (bình luận cha và trả lời)
+                entity.HasOne(c => c.ParentComment)
+                      .WithMany(c => c.Replies)
+                      .HasForeignKey(c => c.ParentCommentId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
         }

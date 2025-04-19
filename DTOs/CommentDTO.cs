@@ -13,6 +13,8 @@ namespace backend.DTOs
         public int? MovieId { get; set; }
         public int? TvSeriesId { get; set; }
         public int? EpisodeId { get; set; }
+        public int? ParentCommentId { get; set; } // Thêm ParentCommentId
+        public List<CommentResponseDTO> Replies { get; set; } = new List<CommentResponseDTO>();
         public string CommentText { get; set; }
         public DateTime Timestamp { get; set; }
     }
@@ -23,6 +25,7 @@ namespace backend.DTOs
         public int? MovieId { get; set; }
         public int? TvSeriesId { get; set; }
         public int? EpisodeId { get; set; }
+        public int? ParentCommentId { get; set; } 
         public string CommentText { get; set; }
     }
 }
