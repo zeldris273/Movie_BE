@@ -33,5 +33,6 @@ namespace backend.Models
         public string TrailerUrl { get; set; }
 
         public List<Season> Seasons { get; set; } = new List<Season>();
+        public List<Comment> Comments { get; set; } = new List<Comment>();
     }
 }

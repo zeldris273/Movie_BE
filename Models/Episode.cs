@@ -16,5 +16,6 @@ namespace backend.Models
         public int EpisodeNumber { get; set; }
 
         public string VideoUrl { get; set; }
+        public List<Comment> Comments { get; set; } = new List<Comment>();
     }
 }

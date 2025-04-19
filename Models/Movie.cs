@@ -28,5 +28,6 @@ namespace backend.Models
         public double? Rating { get; set; }
 
         public string VideoUrl { get; set; } // Link video từ S3
+        public List<Comment> Comments { get; set; } = new List<Comment>();
     }
 }
