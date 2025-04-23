@@ -39,7 +39,8 @@ namespace backend.Services
                 BucketName = BucketName,
                 Key = key,
                 InputStream = stream,
-                ContentType = contentType
+                ContentType = contentType,
+                CannedACL = S3CannedACL.PublicRead
             };
 
             // Upload file lên S3

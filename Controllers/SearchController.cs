@@ -36,7 +36,8 @@ namespace backend.Controllers
                         Title = m.Title,
                         ReleaseDate = m.ReleaseDate,
                         Rating = m.Rating,
-                        ImageUrl = m.ImageUrl // Thêm ImageUrl
+                        PosterUrl = m.PosterUrl, // Sửa từ ImageUrl thành PosterUrl
+                        BackdropUrl = m.BackdropUrl
                     });
 
                 // Tìm kiếm TV series
@@ -49,12 +50,12 @@ namespace backend.Controllers
                         Title = t.Title,
                         ReleaseDate = t.ReleaseDate,
                         Rating = t.Rating,
-                        ImageUrl = t.ImageUrl // Thêm ImageUrl
+                        PosterUrl = t.PosterUrl, // Sửa từ ImageUrl thành PosterUrl
+                        BackdropUrl = t.BackdropUrl
                     });
 
                 // Gộp query
                 var combinedQuery = moviesQuery.Concat(tvSeriesQuery);
-
 
                 var results = await combinedQuery.ToListAsync();
 
@@ -63,10 +64,7 @@ namespace backend.Controllers
                     return NotFound(new { message = "Không tìm thấy movie hoặc TV series nào phù hợp." });
                 }
 
-                return Ok(new
-                {
-                    results
-                });
+                return Ok(new { results });
             }
             catch (Exception ex)
             {

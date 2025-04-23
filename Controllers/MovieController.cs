@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using backend.Models;
 using backend.Data;
-using backend.DTOs;
 using backend.Services;
 
 namespace backend.Controllers
@@ -23,9 +22,8 @@ namespace backend.Controllers
             _s3Service = s3Service;
         }
 
-          [HttpPost("create")]
-        [Authorize(Roles = "admin")]
-        public async Task<IActionResult> Create([FromForm] MovieDTO model)
+        [HttpPost("create")]
+        public async Task<IActionResult> Create([FromForm] MovieUploadDTO model)
         {
             try
             {
@@ -39,40 +37,52 @@ namespace backend.Controllers
                 if (model.VideoFile == null)
                     return BadRequest(new { error = "VideoFile is required" });
 
-                // Chỉ cho phép type là "single_movie"
                 if (model.Type != "single_movie")
-                {
                     return BadRequest(new { error = "This endpoint only supports uploading single movies" });
-                }
 
-                if (model.ImageFiles == null)
-                    return BadRequest(new { error = "ImageFiles are required for single movies" });
-                if (model.ImageFiles.Count != 2)
-                    return BadRequest(new { error = $"Exactly 2 images are required for single movies, but {model.ImageFiles.Count} were provided" });
+                var validStatuses = new[] { "Upcoming", "Released", "Canceled" };
+                if (!validStatuses.Contains(model.Status))
+                    return BadRequest(new { error = "Invalid Status. Must be 'Upcoming', 'Released', or 'Canceled'." });
+
+                if (model.BackdropFile == null || model.PosterFile == null)
+                    return BadRequest(new { error = "Backdrop and Poster images are required for single movies" });
+
+                // Kiểm tra định dạng file
+                var validVideoExtensions = new[] { ".mp4", ".avi", ".mov", ".ts" };
+                var validImageExtensions = new[] { ".jpg", ".jpeg", ".png" };
+
+                if (!validVideoExtensions.Contains(Path.GetExtension(model.VideoFile.FileName).ToLower()))
+                    return BadRequest(new { error = "VideoFile must be .mp4, .avi, .mov, or .ts" });
+
+                if (!validImageExtensions.Contains(Path.GetExtension(model.BackdropFile.FileName).ToLower()))
+                    return BadRequest(new { error = "BackdropFile must be .jpg, .jpeg, or .png" });
+
+                if (!validImageExtensions.Contains(Path.GetExtension(model.PosterFile.FileName).ToLower()))
+                    return BadRequest(new { error = "PosterFile must be .jpg, .jpeg, or .png" });
 
                 // Upload video to S3 using S3Service
                 string videoFolder = $"movies/{model.Title}";
                 string videoUrl = await _s3Service.UploadFileAsync(model.VideoFile, videoFolder);
 
-                // Upload images to S3 using S3Service
+                // Upload Backdrop and Poster to S3
                 List<string> imageUrls = new List<string>();
-                foreach (var image in model.ImageFiles)
-                {
-                    string imageUrl = await _s3Service.UploadFileAsync(image, videoFolder);
-                    imageUrls.Add(imageUrl);
-                }
+                string backdropUrl = await _s3Service.UploadFileAsync(model.BackdropFile, videoFolder);
+                string posterUrl = await _s3Service.UploadFileAsync(model.PosterFile, videoFolder);
+                imageUrls.Add(backdropUrl);
+                imageUrls.Add(posterUrl);
 
                 // Lưu phim lẻ vào cơ sở dữ liệu
                 var movie = new Movie
                 {
                     Title = model.Title,
                     Overview = model.Overview,
-                    Genres = string.Join(",", model.Genres),
+                    Genres = model.Genres,
                     Status = model.Status,
                     ReleaseDate = model.ReleaseDate,
                     Studio = model.Studio,
                     Director = model.Director,
-                    ImageUrl = imageUrls.FirstOrDefault(),
+                    PosterUrl = posterUrl,
+                    BackdropUrl = backdropUrl,
                     VideoUrl = videoUrl
                 };
                 _context.Movies.Add(movie);
@@ -90,7 +100,23 @@ namespace backend.Controllers
         public IActionResult GetAllMovies()
         {
             var movies = _context.Movies.ToList();
-            return Ok(movies);
+            var result = movies.Select(m => new MovieResponseDTO
+            {
+                Id = m.Id,
+                Title = m.Title,
+                Overview = m.Overview,
+                Genres = m.Genres,
+                Status = m.Status,
+                Rating = m.Rating,
+                ReleaseDate = m.ReleaseDate,
+                Studio = m.Studio,
+                Director = m.Director,
+                PosterUrl = m.PosterUrl,
+                BackdropUrl = m.BackdropUrl,
+                VideoUrl = m.VideoUrl,
+                TrailerUrl = m.TrailerUrl
+            });
+            return Ok(result);
         }
 
         [HttpGet("{id}")]
@@ -98,12 +124,28 @@ namespace backend.Controllers
         {
             var movie = _context.Movies.Find(id);
             if (movie == null) return NotFound();
-            return Ok(movie);
+
+            var result = new MovieResponseDTO
+            {
+                Id = movie.Id,
+                Title = movie.Title,
+                Overview = movie.Overview,
+                Genres = movie.Genres,
+                Status = movie.Status,
+                Rating = movie.Rating,
+                ReleaseDate = movie.ReleaseDate,
+                Studio = movie.Studio,
+                Director = movie.Director,
+                PosterUrl = movie.PosterUrl,
+                BackdropUrl = movie.BackdropUrl,
+                VideoUrl = movie.VideoUrl,
+                TrailerUrl = movie.TrailerUrl
+            };
+            return Ok(result);
         }
 
-
         [HttpPut("{id}")]
-        public IActionResult UpdateMovie(int id, [FromBody] Movie updatedMovie)
+        public IActionResult UpdateMovie(int id, [FromBody] MovieDTO updatedMovie)
         {
             var movie = _context.Movies.Find(id);
             if (movie == null) return NotFound();
@@ -115,8 +157,10 @@ namespace backend.Controllers
             movie.ReleaseDate = updatedMovie.ReleaseDate;
             movie.Studio = updatedMovie.Studio;
             movie.Director = updatedMovie.Director;
-            movie.ImageUrl = updatedMovie.ImageUrl;
+            movie.PosterUrl = updatedMovie.PosterUrl;
+            movie.BackdropUrl = updatedMovie.BackdropUrl;
             movie.VideoUrl = updatedMovie.VideoUrl;
+            movie.TrailerUrl = updatedMovie.TrailerUrl;
 
             _context.SaveChanges();
             return NoContent();
@@ -132,7 +176,5 @@ namespace backend.Controllers
             _context.SaveChanges();
             return NoContent();
         }
-
-      
     }
 }

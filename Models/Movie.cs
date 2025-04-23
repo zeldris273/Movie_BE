@@ -24,10 +24,12 @@ namespace backend.Models
 
         public string Director { get; set; }
 
-        public string ImageUrl { get; set; } // Ảnh đại diện (poster)
+        public string PosterUrl { get; set; } // Ảnh đại diện (poster)
+        public string BackdropUrl { get; set; } // Ảnh đại diện (poster)
         public double? Rating { get; set; }
 
         public string VideoUrl { get; set; } // Link video từ S3
+        public string? TrailerUrl { get; set; } // Link video từ S3
         public List<Comment> Comments { get; set; } = new List<Comment>();
     }
 }

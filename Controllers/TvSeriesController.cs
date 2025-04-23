@@ -34,12 +34,13 @@ namespace backend.Controllers
                     Id = s.Id,
                     Title = s.Title,
                     Overview = s.Overview,
+                    Rating = s.Rating,
                     Genres = s.Genres,
                     Status = s.Status,
                     ReleaseDate = s.ReleaseDate,
                     Studio = s.Studio,
                     Director = s.Director,
-                    ImageUrl = s.ImageUrl,
+                    PosterUrl = s.PosterUrl,
                     BackdropUrl = s.BackdropUrl
                 })
                 .ToList();
@@ -63,7 +64,7 @@ namespace backend.Controllers
                 ReleaseDate = series.ReleaseDate,
                 Studio = series.Studio,
                 Director = series.Director,
-                ImageUrl = series.ImageUrl,
+                PosterUrl = series.PosterUrl,
                 BackdropUrl = series.BackdropUrl,
                 TrailerUrl = series.TrailerUrl
             };
@@ -92,10 +93,10 @@ namespace backend.Controllers
                 }
 
                 string posterFolder = $"tvseries/{model.Title}/poster";
-                string posterImageUrl = await _s3Service.UploadFileAsync(model.PosterImageFile, posterFolder);
+                string posterPosterUrl = await _s3Service.UploadFileAsync(model.PosterImageFile, posterFolder);
 
                 string backdropFolder = $"tvseries/{model.Title}/backdrop";
-                string backdropImageUrl = await _s3Service.UploadFileAsync(model.BackdropImageFile, backdropFolder);
+                string backdropPosterUrl = await _s3Service.UploadFileAsync(model.BackdropImageFile, backdropFolder);
 
                 // Tạo TV series mới
                 var series = new TvSeries
@@ -107,8 +108,8 @@ namespace backend.Controllers
                     ReleaseDate = model.ReleaseDate,
                     Studio = model.Studio,
                     Director = model.Director,
-                    ImageUrl = posterImageUrl,
-                    BackdropUrl = backdropImageUrl
+                    PosterUrl = posterPosterUrl,
+                    BackdropUrl = backdropPosterUrl
                 };
                 _context.TvSeries.Add(series);
                 await _context.SaveChangesAsync();
@@ -133,7 +134,7 @@ namespace backend.Controllers
                     ReleaseDate = series.ReleaseDate,
                     Studio = series.Studio,
                     Director = series.Director,
-                    ImageUrl = series.ImageUrl,
+                    PosterUrl = series.PosterUrl,
                     BackdropUrl = series.BackdropUrl
                 };
                 return Ok(response);
@@ -371,9 +372,9 @@ namespace backend.Controllers
 
         //     try
         //     {
-        //         if (!string.IsNullOrEmpty(series.ImageUrl))
+        //         if (!string.IsNullOrEmpty(series.PosterUrl))
         //         {
-        //             await _s3Service.DeleteFileAsync(series.ImageUrl);
+        //             await _s3Service.DeleteFileAsync(series.PosterUrl);
         //         }
         //         if (!string.IsNullOrEmpty(series.BackdropUrl))
         //         {

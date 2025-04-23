@@ -12,6 +12,7 @@ namespace backend.Models
         public string Title { get; set; }
         public DateTime? ReleaseDate { get; set; }
         public double? Rating { get; set; }
-        public string ImageUrl { get; set; }
+        public string PosterUrl { get; set; }
+        public string BackdropUrl { get; set; }
     }
 }

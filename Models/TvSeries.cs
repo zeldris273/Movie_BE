@@ -25,12 +25,12 @@ namespace backend.Models
 
         public string Director { get; set; }
 
-        public string ImageUrl { get; set; } 
+        public string PosterUrl { get; set; } 
 
         public string BackdropUrl { get; set; }
         public double? Rating { get; set; }
 
-        public string TrailerUrl { get; set; }
+        public string? TrailerUrl { get; set; }
 
         public List<Season> Seasons { get; set; } = new List<Season>();
         public List<Comment> Comments { get; set; } = new List<Comment>();

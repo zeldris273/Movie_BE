@@ -28,7 +28,8 @@ namespace backend.Data
                 entity.Property(e => e.ReleaseDate).HasColumnName("release_date");
                 entity.Property(e => e.Studio).HasColumnName("studio");
                 entity.Property(e => e.Director).HasColumnName("director");
-                entity.Property(e => e.ImageUrl).HasColumnName("image_url");
+                entity.Property(e => e.PosterUrl).HasColumnName("poster_url");
+                entity.Property(e => e.BackdropUrl).HasColumnName("backdrop_url");
                 entity.Property(e => e.VideoUrl).HasColumnName("video_url");
             });
 

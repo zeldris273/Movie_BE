@@ -27,12 +27,11 @@ namespace backend.DTOs
         public DateTime? ReleaseDate { get; set; }
         public string Studio { get; set; }
         public string Director { get; set; }
-        public string ImageUrl { get; set; }
+        public string PosterUrl { get; set; }
         public string BackdropUrl { get; set; }
         public string TrailerUrl { get; set; }
     }
-
-    // DTO cho upload TV series với 2 ảnh
+    
     public class TvSeriesUploadDTO
     {
         public string Title { get; set; }
