@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\Backup\\Code\\MovieApp\\backend\\backend.csproj": {}
+    "C:\\Users\\nvh\\Downloads\\Compressed\\Git\\Movie_BE\\backend.csproj": {}
   },
   "projects": {
-    "D:\\Backup\\Code\\MovieApp\\backend\\backend.csproj": {
+    "C:\\Users\\nvh\\Downloads\\Compressed\\Git\\Movie_BE\\backend.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\Backup\\Code\\MovieApp\\backend\\backend.csproj",
+        "projectUniqueName": "C:\\Users\\nvh\\Downloads\\Compressed\\Git\\Movie_BE\\backend.csproj",
         "projectName": "backend",
-        "projectPath": "D:\\Backup\\Code\\MovieApp\\backend\\backend.csproj",
+        "projectPath": "C:\\Users\\nvh\\Downloads\\Compressed\\Git\\Movie_BE\\backend.csproj",
         "packagesPath": "C:\\Users\\nvh\\.nuget\\packages\\",
-        "outputPath": "D:\\Backup\\Code\\MovieApp\\backend\\obj\\",
+        "outputPath": "C:\\Users\\nvh\\Downloads\\Compressed\\Git\\Movie_BE\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\nvh\\AppData\\Roaming\\NuGet\\NuGet.Config"

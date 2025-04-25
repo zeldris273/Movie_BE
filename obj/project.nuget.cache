@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "e7mkBtlv47PDUU6KDx0cerAOBUKZch4qeuO/m3Sww+0V3bSyHrQL20+Gt3RnJiVbMj5fJME7wVvgCfplF00X0w==",
+  "dgSpecHash": "8jQkqOqa3unkIRcsfJpGdIByq8xifZBoxzD+w23fHwS9tLpOpRSqZ8/+qbvkcv89sXKzPiFRKMQCPCNQZlqv4Q==",
   "success": true,
-  "projectFilePath": "D:\\Backup\\Code\\MovieApp\\backend\\backend.csproj",
+  "projectFilePath": "C:\\Users\\nvh\\Downloads\\Compressed\\Git\\Movie_BE\\backend.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\nvh\\.nuget\\packages\\awssdk.core\\3.7.402.19\\awssdk.core.3.7.402.19.nupkg.sha512",
     "C:\\Users\\nvh\\.nuget\\packages\\awssdk.s3\\3.7.415.18\\awssdk.s3.3.7.415.18.nupkg.sha512",

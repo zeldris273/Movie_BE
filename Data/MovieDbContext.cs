@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using backend.Models;
+using Movie_BE.Models;
 
 namespace backend.Data
 {
@@ -13,6 +14,7 @@ namespace backend.Data
         public DbSet<Season> Seasons { get; set; }
         public DbSet<Episode> Episodes { get; set; }
         public DbSet<Comment> Comments { get; set; }
+        public DbSet<WatchList> WatchList { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -85,7 +87,7 @@ namespace backend.Data
                       .HasColumnName("episode_id");
 
                 entity.Property(e => e.ParentCommentId)
-                      .HasColumnName("parent_comment_id"); // Ánh xạ cột mới
+                      .HasColumnName("parent_comment_id");
 
                 entity.Property(e => e.CommentText)
                       .HasColumnName("comment_text");
@@ -99,35 +101,89 @@ namespace backend.Data
                 entity.Property(e => e.UpdatedAt)
                       .HasColumnName("updated_at");
 
-                // Quan hệ với User
                 entity.HasOne(c => c.User)
                       .WithMany(u => u.Comments)
                       .HasForeignKey(c => c.UserId)
                       .OnDelete(DeleteBehavior.Cascade);
 
-                // Quan hệ với Movie
                 entity.HasOne(c => c.Movie)
                       .WithMany(m => m.Comments)
                       .HasForeignKey(c => c.MovieId)
                       .OnDelete(DeleteBehavior.Cascade);
 
-                // Quan hệ với TvSeries
                 entity.HasOne(c => c.TvSeries)
                       .WithMany(t => t.Comments)
                       .HasForeignKey(c => c.TvSeriesId)
                       .OnDelete(DeleteBehavior.Cascade);
 
-                // Quan hệ với Episode
                 entity.HasOne(c => c.Episode)
                       .WithMany(e => e.Comments)
                       .HasForeignKey(c => c.EpisodeId)
                       .OnDelete(DeleteBehavior.Cascade);
 
-                // Quan hệ tự tham chiếu (bình luận cha và trả lời)
                 entity.HasOne(c => c.ParentComment)
                       .WithMany(c => c.Replies)
                       .HasForeignKey(c => c.ParentCommentId)
                       .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Cấu hình ánh xạ cho WatchList
+            modelBuilder.Entity<WatchList>(entity =>
+            {
+                entity.ToTable("watchlist");
+
+                entity.HasKey(w => w.Id);
+
+                entity.Property(w => w.Id)
+                      .HasColumnName("id")
+                      .ValueGeneratedOnAdd();
+
+                entity.Property(w => w.UserId)
+                      .HasColumnName("user_id");
+
+                entity.Property(w => w.MediaId)
+                      .HasColumnName("media_id");
+
+                entity.Property(w => w.MediaType)
+                      .HasColumnName("media_type");
+
+                entity.Property(w => w.AddedDate)
+                      .HasColumnName("added_date");
+
+                // Quan hệ với bảng Users
+                entity.HasOne(w => w.User)
+                      .WithMany(u => u.WatchList)
+                      .HasForeignKey(w => w.UserId)
+                      .HasConstraintName("FK_WatchList_Users_user_id")
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                // Đảm bảo không trùng lặp
+                entity.HasIndex(w => new { w.UserId, w.MediaId, w.MediaType })
+                      .IsUnique();
+            });
+
+            // Cấu hình ánh xạ cho User
+            modelBuilder.Entity<User>(entity =>
+            {
+                entity.ToTable("users");
+
+                entity.HasKey(u => u.Id);
+
+                entity.Property(u => u.Id)
+                      .HasColumnName("id")
+                      .ValueGeneratedOnAdd();
+
+                entity.Property(u => u.Email)
+                      .HasColumnName("email");
+
+                entity.Property(u => u.PasswordHash)
+                      .HasColumnName("password_hash");
+
+                entity.Property(u => u.Role)
+                      .HasColumnName("role");
+
+                entity.Property(u => u.CreatedAt)
+                      .HasColumnName("created_at");
             });
         }
     }
