@@ -15,5 +15,6 @@ namespace backend.Models
         public DateTime CreatedAt { get; set; }
         public List<Comment> Comments { get; set; } = new List<Comment>();
         public List<WatchList> WatchList { get; set; }
+        public List<Rating> Ratings { get; set; }
     }
 }

@@ -35,7 +35,7 @@ namespace backend.Controllers
                         Type = "Movie",
                         Title = m.Title,
                         ReleaseDate = m.ReleaseDate,
-                        Rating = m.Rating,
+                        Rating = (double?)m.Rating,
                         PosterUrl = m.PosterUrl, // Sửa từ ImageUrl thành PosterUrl
                         BackdropUrl = m.BackdropUrl
                     });
@@ -49,7 +49,7 @@ namespace backend.Controllers
                         Type = "TvSeries",
                         Title = t.Title,
                         ReleaseDate = t.ReleaseDate,
-                        Rating = t.Rating,
+                        Rating = (double?)t.Rating,
                         PosterUrl = t.PosterUrl, // Sửa từ ImageUrl thành PosterUrl
                         BackdropUrl = t.BackdropUrl
                     });

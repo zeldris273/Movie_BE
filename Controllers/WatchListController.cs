@@ -2,9 +2,11 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
 using backend.Data;
+using backend.DTOs;
 using backend.Models;
 using Movie_BE.Models;
 using System.Linq;
+using Movie_BE.DTOs;
 
 namespace backend.Controllers
 {
@@ -112,11 +114,5 @@ namespace backend.Controllers
 
             return Ok(new { message = "Removed from watch list successfully." });
         }
-    }
-
-    public class WatchListDTO
-    {
-        public int MediaId { get; set; }
-        public string MediaType { get; set; }
     }
 }

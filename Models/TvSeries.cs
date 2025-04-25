@@ -28,7 +28,8 @@ namespace backend.Models
         public string PosterUrl { get; set; } 
 
         public string BackdropUrl { get; set; }
-        public double? Rating { get; set; }
+        public decimal? Rating { get; set; }
+        public int? NumberOfRatings { get; set; }
 
         public string? TrailerUrl { get; set; }
 

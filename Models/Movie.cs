@@ -26,7 +26,8 @@ namespace backend.Models
 
         public string PosterUrl { get; set; } // Ảnh đại diện (poster)
         public string BackdropUrl { get; set; } // Ảnh đại diện (poster)
-        public double? Rating { get; set; }
+        public decimal? Rating { get; set; }
+        public int? NumberOfRatings { get; set; }
 
         public string VideoUrl { get; set; } // Link video từ S3
         public string? TrailerUrl { get; set; } // Link video từ S3
