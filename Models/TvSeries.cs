@@ -30,6 +30,7 @@ namespace backend.Models
         public string BackdropUrl { get; set; }
         public decimal? Rating { get; set; }
         public int? NumberOfRatings { get; set; }
+        public int? ViewCount { get; set; }
 
         public string? TrailerUrl { get; set; }
 

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using backend.Models;
 using backend.Data;
 using backend.Services;
@@ -176,6 +177,17 @@ namespace backend.Controllers
             _context.Movies.Remove(movie);
             _context.SaveChanges();
             return NoContent();
+        }
+
+        [HttpGet("top-rated-by-votes")]
+        public async Task<IActionResult> GetTopRatedMoviesByVotes()
+        {
+            var topMovies = await _context.Movies
+                .OrderByDescending(m => m.NumberOfRatings)
+                .Take(20)
+                .ToListAsync();
+
+            return Ok(topMovies);
         }
     }
 }

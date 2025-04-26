@@ -364,6 +364,17 @@ namespace backend.Controllers
             return Ok(episode);
         }
 
+        [HttpGet("most-viewed")]
+        public async Task<IActionResult> GetMostViewedTvSeries()
+        {
+            var mostViewedTvSeries = await _context.TvSeries
+                .OrderByDescending(t => t.ViewCount)
+                .Take(20)
+                .ToListAsync();
+
+            return Ok(mostViewedTvSeries);
+        }
+
         // [HttpDelete("{id}")]
         // [Authorize(Roles = "admin")]
         // public async Task<IActionResult> DeleteTvSeries(int id)
