@@ -28,7 +28,6 @@ namespace backend.Controllers
         {
             try
             {
-                // Kiểm tra dữ liệu đầu vào
                 if (string.IsNullOrEmpty(model.Title))
                     return BadRequest(new { error = "Title is required" });
                 if (string.IsNullOrEmpty(model.Status))
@@ -48,7 +47,6 @@ namespace backend.Controllers
                 if (model.BackdropFile == null || model.PosterFile == null)
                     return BadRequest(new { error = "Backdrop and Poster images are required for single movies" });
 
-                // Kiểm tra định dạng file
                 var validVideoExtensions = new[] { ".mp4", ".avi", ".mov", ".ts" };
                 var validImageExtensions = new[] { ".jpg", ".jpeg", ".png" };
 
@@ -61,18 +59,15 @@ namespace backend.Controllers
                 if (!validImageExtensions.Contains(Path.GetExtension(model.PosterFile.FileName).ToLower()))
                     return BadRequest(new { error = "PosterFile must be .jpg, .jpeg, or .png" });
 
-                // Upload video to S3 using S3Service
                 string videoFolder = $"movies/{model.Title}";
                 string videoUrl = await _s3Service.UploadFileAsync(model.VideoFile, videoFolder);
 
-                // Upload Backdrop and Poster to S3
                 List<string> imageUrls = new List<string>();
                 string backdropUrl = await _s3Service.UploadFileAsync(model.BackdropFile, videoFolder);
                 string posterUrl = await _s3Service.UploadFileAsync(model.PosterFile, videoFolder);
                 imageUrls.Add(backdropUrl);
                 imageUrls.Add(posterUrl);
 
-                // Lưu phim lẻ vào cơ sở dữ liệu
                 var movie = new Movie
                 {
                     Title = model.Title,
@@ -109,6 +104,7 @@ namespace backend.Controllers
                 Genres = m.Genres,
                 Status = m.Status,
                 Rating = (double?)m.Rating,
+                NumberOfRatings = m.NumberOfRatings,
                 ReleaseDate = m.ReleaseDate,
                 Studio = m.Studio,
                 Director = m.Director,
@@ -120,11 +116,22 @@ namespace backend.Controllers
             return Ok(result);
         }
 
-        [HttpGet("{id}")]
-        public IActionResult GetMovie(int id)
+        // Endpoint cho URL xem chi tiết: /api/movies/{id}/{title}
+        [HttpGet("{id}/{title}")]
+        public IActionResult GetMovie(int id, string title)
         {
             var movie = _context.Movies.Find(id);
-            if (movie == null) return NotFound();
+            if (movie == null) return NotFound(new { error = "Movie not found" });
+
+            // Kiểm tra slug (title) để SEO, nhưng không bắt buộc phải khớp hoàn toàn
+            string expectedSlug = movie.Title.ToLower()
+                .Replace(" ", "-")
+                .Replace("[^a-z0-9-]", ""); // Đơn giản hóa, bạn có thể dùng thư viện slugify nếu muốn
+            if (title != expectedSlug)
+            {
+                // Có thể redirect đến URL chính xác nếu cần, nhưng ở đây bỏ qua để đơn giản
+                // return RedirectToAction("GetMovie", new { id = id, title = expectedSlug });
+            }
 
             var result = new MovieResponseDTO
             {
@@ -144,6 +151,19 @@ namespace backend.Controllers
                 TrailerUrl = movie.TrailerUrl
             };
             return Ok(result);
+        }
+
+        // Endpoint cho URL xem phim: /api/movies/{id}/watch
+        [HttpGet("{id}/watch")]
+        public IActionResult WatchMovie(int id)
+        {
+            var movie = _context.Movies.Find(id);
+            if (movie == null) return NotFound(new { error = "Movie not found" });
+
+            if (string.IsNullOrEmpty(movie.VideoUrl))
+                return BadRequest(new { error = "Video URL not available for this movie" });
+
+            return Ok(new { videoUrl = movie.VideoUrl });
         }
 
         [HttpPut("{id}")]
