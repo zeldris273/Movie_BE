@@ -9,6 +9,7 @@ using backend.Data;
 using backend.DTOs;
 using backend.Services;
 using Microsoft.EntityFrameworkCore;
+using System.Text.RegularExpressions;
 
 namespace backend.Controllers
 {
@@ -62,11 +63,16 @@ namespace backend.Controllers
 
             // Kiểm tra slug (title) để SEO
             string expectedSlug = series.Title.ToLower()
-                .Replace(" ", "-")
-                .Replace("[^a-z0-9-]", "");
+         .Replace(" ", "-") // Thay khoảng trắng bằng dấu gạch ngang
+         .Trim(); // Bỏ khoảng trắng thừa
+            expectedSlug = Regex.Replace(expectedSlug, "[^a-z0-9-]", ""); // Bỏ ký tự không phải chữ, số, hoặc dấu gạch ngang
+            expectedSlug = Regex.Replace(expectedSlug, "-+", "-");
+
+            Console.WriteLine($"Title: {title}");
+            Console.WriteLine($"Expected slug: {expectedSlug}");
             if (title != expectedSlug)
             {
-                // return NotFound(new { error = "Invalid Film" });
+                return NotFound(new { error = "Invalid Film" });
             }
 
             var response = new TvSeriesResponseDTO

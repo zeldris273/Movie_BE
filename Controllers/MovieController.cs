@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using backend.Models;
 using backend.Data;
 using backend.Services;
+using System.Text.RegularExpressions;
 
 namespace backend.Controllers
 {
@@ -123,14 +124,16 @@ namespace backend.Controllers
             var movie = _context.Movies.Find(id);
             if (movie == null) return NotFound(new { error = "Movie not found" });
 
-            // Kiểm tra slug (title) để SEO, nhưng không bắt buộc phải khớp hoàn toàn
             string expectedSlug = movie.Title.ToLower()
-                .Replace(" ", "-")
-                .Replace("[^a-z0-9-]", ""); // Đơn giản hóa, bạn có thể dùng thư viện slugify nếu muốn
+         .Replace(" ", "-") // Thay khoảng trắng bằng dấu gạch ngang
+         .Trim(); // Bỏ khoảng trắng thừa
+            expectedSlug = Regex.Replace(expectedSlug, "[^a-z0-9-]", ""); // Bỏ ký tự không phải chữ, số, hoặc dấu gạch ngang
+            expectedSlug = Regex.Replace(expectedSlug, "-+", "-");
+
+         
             if (title != expectedSlug)
             {
-                // Có thể redirect đến URL chính xác nếu cần, nhưng ở đây bỏ qua để đơn giản
-                // return RedirectToAction("GetMovie", new { id = id, title = expectedSlug });
+               return NotFound(new { error = "Movie not found" });
             }
 
             var result = new MovieResponseDTO
