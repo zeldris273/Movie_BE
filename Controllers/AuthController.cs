@@ -23,13 +23,17 @@ namespace backend.Controllers
             if (user == null)
                 return Unauthorized("Invalid credentials");
 
-            var token = _authService.GenerateJwtToken(user);
-            return Ok(new { Token = token });
+            var accessToken = _authService.GenerateJwtToken(user);
+            var refreshToken = _authService.GenerateRefreshToken();
+            await _authService.SaveRefreshToken(user.Id, refreshToken);
+
+            return Ok(new { AccessToken = accessToken, RefreshToken = refreshToken });
         }
 
         [HttpPost("logout")]
-        public IActionResult Logout()
+        public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
         {
+            await _authService.RevokeRefreshToken(request.RefreshToken);
             return Ok("Logged out successfully");
         }
 
@@ -69,6 +73,21 @@ namespace backend.Controllers
 
             return Ok("User registered successfully");
         }
+
+    [HttpPost("refresh-token")]
+        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
+        {
+            var user = await _authService.ValidateRefreshToken(request.RefreshToken);
+            if (user == null)
+                return Unauthorized("Invalid or expired refresh token");
+
+            var newAccessToken = _authService.GenerateJwtToken(user);
+            var newRefreshToken = _authService.GenerateRefreshToken();
+            await _authService.RevokeRefreshToken(request.RefreshToken); // Thu hồi refresh token cũ
+            await _authService.SaveRefreshToken(user.Id, newRefreshToken); // Lưu refresh token mới
+
+            return Ok(new { AccessToken = newAccessToken, RefreshToken = newRefreshToken });
+        }
     }
 
     public class LoginRequest
@@ -93,5 +112,10 @@ namespace backend.Controllers
         public string Email { get; set; }
         public string Password { get; set; }
         public string Otp { get; set; }
+    }
+
+    public class RefreshTokenRequest
+    {
+        public string RefreshToken { get; set; }
     }
 }

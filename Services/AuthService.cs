@@ -3,6 +3,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Security.Cryptography;
 using MySql.Data.MySqlClient;
 using BCrypt.Net;
 using System.Net.Mail;
@@ -93,6 +94,84 @@ namespace backend.Services
             );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        // Tạo refresh token
+        public string GenerateRefreshToken()
+        {
+            var randomNumber = new byte[32];
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(randomNumber);
+                return Convert.ToBase64String(randomNumber);
+            }
+        }
+
+        // Lưu refresh token vào database
+        public async Task SaveRefreshToken(int userId, string refreshToken)
+        {
+            using var conn = new MySqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            var cmd = new MySqlCommand(
+                "INSERT INTO RefreshToken (UserId, Token, IssuedAt, ExpiresAt, IsRevoked) " +
+                "VALUES (@UserId, @Token, @IssuedAt, @ExpiresAt, @IsRevoked)",
+                conn);
+            cmd.Parameters.AddWithValue("@UserId", userId);
+            cmd.Parameters.AddWithValue("@Token", refreshToken);
+            cmd.Parameters.AddWithValue("@IssuedAt", DateTime.UtcNow);
+            cmd.Parameters.AddWithValue("@ExpiresAt", DateTime.UtcNow.AddDays(30)); // Hết hạn sau 30 ngày
+            cmd.Parameters.AddWithValue("@IsRevoked", false);
+
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        // Xác thực refresh token
+        public async Task<User> ValidateRefreshToken(string refreshToken)
+        {
+            using var conn = new MySqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            var cleanupCmd = new MySqlCommand(
+        "DELETE FROM RefreshToken WHERE ExpiresAt < @Now OR IsRevoked = true",
+        conn);
+            cleanupCmd.Parameters.AddWithValue("@Now", DateTime.UtcNow);
+            await cleanupCmd.ExecuteNonQueryAsync();
+
+            var cmd = new MySqlCommand(
+                "SELECT rt.*, u.Id, u.Email, u.Role " +
+                "FROM RefreshToken rt " +
+                "JOIN Users u ON rt.UserId = u.Id " +
+                "WHERE rt.Token = @Token AND rt.IsRevoked = false AND rt.ExpiresAt > @Now",
+                conn);
+            cmd.Parameters.AddWithValue("@Token", refreshToken);
+            cmd.Parameters.AddWithValue("@Now", DateTime.UtcNow);
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                return new User
+                {
+                    Id = reader.GetInt32(reader.GetOrdinal("Id")),
+                    Email = reader.GetString(reader.GetOrdinal("Email")),
+                    Role = reader.IsDBNull(reader.GetOrdinal("Role")) ? "User" : reader.GetString(reader.GetOrdinal("Role")),
+                };
+            }
+            return null;
+        }
+
+        // Thu hồi refresh token
+        public async Task RevokeRefreshToken(string refreshToken)
+        {
+            using var conn = new MySqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            var cmd = new MySqlCommand(
+                "UPDATE RefreshToken SET IsRevoked = true WHERE Token = @Token",
+                conn);
+            cmd.Parameters.AddWithValue("@Token", refreshToken);
+
+            await cmd.ExecuteNonQueryAsync();
         }
 
         private string GenerateOtp()
