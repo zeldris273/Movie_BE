@@ -17,7 +17,6 @@ namespace backend.Data
         public DbSet<Comment> Comments { get; set; }
         public DbSet<WatchList> WatchList { get; set; }
         public DbSet<Rating> Ratings { get; set; }
-        public DbSet<RefreshToken> RefreshTokens { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

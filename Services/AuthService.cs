@@ -3,7 +3,6 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using System.Security.Cryptography;
 using MySql.Data.MySqlClient;
 using BCrypt.Net;
 using System.Net.Mail;
@@ -64,7 +63,6 @@ namespace backend.Services
                     Email = reader.GetString(reader.GetOrdinal("Email")),
                     PasswordHash = reader.IsDBNull(reader.GetOrdinal("PasswordHash")) ? "" : reader.GetString(reader.GetOrdinal("PasswordHash")),
                     Role = reader.IsDBNull(reader.GetOrdinal("Role")) ? "User" : reader.GetString(reader.GetOrdinal("Role")),
-
                 };
 
                 if (BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
@@ -82,96 +80,78 @@ namespace backend.Services
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Name, user.Email),
-                 new Claim(ClaimTypes.Role, user.Role)
+                new Claim(ClaimTypes.Role, user.Role)
             };
 
             var token = new JwtSecurityToken(
                 issuer: _config["Jwt:Issuer"],
                 audience: _config["Jwt:Audience"],
                 claims: claims,
-                expires: DateTime.Now.AddHours(1),
+                expires: DateTime.Now.AddSeconds(10),
                 signingCredentials: creds
             );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        // Tạo refresh token
-        public string GenerateRefreshToken()
+        // Tạo refresh token dưới dạng JWT
+        public string GenerateRefreshToken(User user)
         {
-            var randomNumber = new byte[32];
-            using (var rng = RandomNumberGenerator.Create())
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:RefreshKey"]));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var claims = new[]
             {
-                rng.GetBytes(randomNumber);
-                return Convert.ToBase64String(randomNumber);
-            }
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Name, user.Email),
+                new Claim(ClaimTypes.Role, user.Role)
+            };
+
+            var token = new JwtSecurityToken(
+                issuer: _config["Jwt:Issuer"],
+                audience: _config["Jwt:Audience"],
+                claims: claims,
+                expires: DateTime.Now.AddDays(7), // Refresh token hết hạn sau 7 ngày (giảm thời gian sống để tăng bảo mật)
+                signingCredentials: creds
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        // Lưu refresh token vào database
-        public async Task SaveRefreshToken(int userId, string refreshToken)
+        // Xác thực refresh token (dạng JWT)
+        public User ValidateRefreshToken(string refreshToken)
         {
-            using var conn = new MySqlConnection(_connectionString);
-            await conn.OpenAsync();
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.UTF8.GetBytes(_config["Jwt:RefreshKey"]);
 
-            var cmd = new MySqlCommand(
-                "INSERT INTO RefreshToken (UserId, Token, IssuedAt, ExpiresAt, IsRevoked) " +
-                "VALUES (@UserId, @Token, @IssuedAt, @ExpiresAt, @IsRevoked)",
-                conn);
-            cmd.Parameters.AddWithValue("@UserId", userId);
-            cmd.Parameters.AddWithValue("@Token", refreshToken);
-            cmd.Parameters.AddWithValue("@IssuedAt", DateTime.UtcNow);
-            cmd.Parameters.AddWithValue("@ExpiresAt", DateTime.UtcNow.AddDays(30)); // Hết hạn sau 30 ngày
-            cmd.Parameters.AddWithValue("@IsRevoked", false);
-
-            await cmd.ExecuteNonQueryAsync();
-        }
-
-        // Xác thực refresh token
-        public async Task<User> ValidateRefreshToken(string refreshToken)
-        {
-            using var conn = new MySqlConnection(_connectionString);
-            await conn.OpenAsync();
-
-            var cleanupCmd = new MySqlCommand(
-        "DELETE FROM RefreshToken WHERE ExpiresAt < @Now OR IsRevoked = true",
-        conn);
-            cleanupCmd.Parameters.AddWithValue("@Now", DateTime.UtcNow);
-            await cleanupCmd.ExecuteNonQueryAsync();
-
-            var cmd = new MySqlCommand(
-                "SELECT rt.*, u.Id, u.Email, u.Role " +
-                "FROM RefreshToken rt " +
-                "JOIN Users u ON rt.UserId = u.Id " +
-                "WHERE rt.Token = @Token AND rt.IsRevoked = false AND rt.ExpiresAt > @Now",
-                conn);
-            cmd.Parameters.AddWithValue("@Token", refreshToken);
-            cmd.Parameters.AddWithValue("@Now", DateTime.UtcNow);
-
-            using var reader = await cmd.ExecuteReaderAsync();
-            if (await reader.ReadAsync())
+            try
             {
+                var principal = tokenHandler.ValidateToken(refreshToken, new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidIssuer = _config["Jwt:Issuer"],
+                    ValidAudience = _config["Jwt:Audience"],
+                    IssuerSigningKey = new SymmetricSecurityKey(key)
+                }, out SecurityToken validatedToken);
+
+                var userIdClaim = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdClaim))
+                    return null;
+
                 return new User
                 {
-                    Id = reader.GetInt32(reader.GetOrdinal("Id")),
-                    Email = reader.GetString(reader.GetOrdinal("Email")),
-                    Role = reader.IsDBNull(reader.GetOrdinal("Role")) ? "User" : reader.GetString(reader.GetOrdinal("Role")),
+                    Id = int.Parse(userIdClaim),
+                    Email = principal.FindFirst(ClaimTypes.Name)?.Value,
+                    Role = principal.FindFirst(ClaimTypes.Role)?.Value ?? "User"
                 };
             }
-            return null;
-        }
-
-        // Thu hồi refresh token
-        public async Task RevokeRefreshToken(string refreshToken)
-        {
-            using var conn = new MySqlConnection(_connectionString);
-            await conn.OpenAsync();
-
-            var cmd = new MySqlCommand(
-                "UPDATE RefreshToken SET IsRevoked = true WHERE Token = @Token",
-                conn);
-            cmd.Parameters.AddWithValue("@Token", refreshToken);
-
-            await cmd.ExecuteNonQueryAsync();
+            catch
+            {
+                return null; // Token không hợp lệ hoặc đã hết hạn
+            }
         }
 
         private string GenerateOtp()
@@ -226,6 +206,5 @@ namespace backend.Services
             }
             return false;
         }
-
     }
 }

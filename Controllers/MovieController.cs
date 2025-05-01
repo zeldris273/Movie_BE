@@ -117,6 +117,7 @@ namespace backend.Controllers
             return Ok(result);
         }
 
+
         // Endpoint cho URL xem chi tiết: /api/movies/{id}/{title}
         [HttpGet("{id}/{title}")]
         public IActionResult GetMovie(int id, string title)
@@ -130,10 +131,10 @@ namespace backend.Controllers
             expectedSlug = Regex.Replace(expectedSlug, "[^a-z0-9-]", ""); // Bỏ ký tự không phải chữ, số, hoặc dấu gạch ngang
             expectedSlug = Regex.Replace(expectedSlug, "-+", "-");
 
-         
+
             if (title != expectedSlug)
             {
-               return NotFound(new { error = "Movie not found" });
+                return NotFound(new { error = "Movie not found" });
             }
 
             var result = new MovieResponseDTO

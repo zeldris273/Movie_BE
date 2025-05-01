@@ -1,4 +1,3 @@
-// Controllers/AuthController.cs
 using Microsoft.AspNetCore.Mvc;
 using backend.Services;
 using backend.Models;
@@ -24,28 +23,26 @@ namespace backend.Controllers
                 return Unauthorized("Invalid credentials");
 
             var accessToken = _authService.GenerateJwtToken(user);
-            var refreshToken = _authService.GenerateRefreshToken();
-            await _authService.SaveRefreshToken(user.Id, refreshToken);
+            var refreshToken = _authService.GenerateRefreshToken(user);
 
             return Ok(new { AccessToken = accessToken, RefreshToken = refreshToken });
         }
 
         [HttpPost("logout")]
-        public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
+        public IActionResult Logout()
         {
-            await _authService.RevokeRefreshToken(request.RefreshToken);
-            return Ok("Logged out successfully");
+            // Vì refreshToken là stateless, không thể thu hồi token.
+            // Client nên xóa token ở phía frontend.
+            return Ok("Logged out successfully. Please clear your tokens on the client side.");
         }
 
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
-            // Gửi OTP trước khi đăng ký
             var otpSent = await _authService.SendOtp(request.Email);
             if (!otpSent)
                 return BadRequest("Failed to send OTP");
 
-            // Lưu thông tin tạm (email, password) nếu cần, chờ xác thực OTP
             return Ok("OTP sent to your email. Please verify to complete registration.");
         }
 
@@ -66,7 +63,6 @@ namespace backend.Controllers
             if (!isValid)
                 return BadRequest("Invalid OTP");
 
-            // Sau khi OTP hợp lệ, hoàn tất đăng ký
             var success = await _authService.RegisterUser(request.Email, request.Password);
             if (!success)
                 return BadRequest("Email already exists");
@@ -74,17 +70,15 @@ namespace backend.Controllers
             return Ok("User registered successfully");
         }
 
-    [HttpPost("refresh-token")]
-        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
+        [HttpPost("refresh-token")]
+        public IActionResult RefreshToken([FromBody] RefreshTokenRequest request)
         {
-            var user = await _authService.ValidateRefreshToken(request.RefreshToken);
+            var user = _authService.ValidateRefreshToken(request.RefreshToken);
             if (user == null)
                 return Unauthorized("Invalid or expired refresh token");
 
             var newAccessToken = _authService.GenerateJwtToken(user);
-            var newRefreshToken = _authService.GenerateRefreshToken();
-            await _authService.RevokeRefreshToken(request.RefreshToken); // Thu hồi refresh token cũ
-            await _authService.SaveRefreshToken(user.Id, newRefreshToken); // Lưu refresh token mới
+            var newRefreshToken = _authService.GenerateRefreshToken(user);
 
             return Ok(new { AccessToken = newAccessToken, RefreshToken = newRefreshToken });
         }

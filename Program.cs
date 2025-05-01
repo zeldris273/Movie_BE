@@ -64,8 +64,6 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Movie API", Version = "v1" });
     c.OperationFilter<SwaggerFileUploadOperationFilter>();
-
-    
 });
 
 // Thêm MemoryCache
@@ -91,11 +89,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 // Thêm CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", builder =>
+    options.AddPolicy("AllowFrontend", builder =>
     {
-        builder.AllowAnyOrigin()
+        builder.WithOrigins("http://localhost:5173") // Chỉ định rõ nguồn gốc của frontend
                .AllowAnyMethod()
-               .AllowAnyHeader();
+               .AllowAnyHeader()
+               .AllowCredentials(); // Cho phép gửi cookie
     });
 });
 
@@ -103,7 +102,18 @@ var app = builder.Build();
 
 // Middleware pipeline
 app.UseRouting();
-app.UseCors("AllowAll");
+
+// Đảm bảo CORS được gọi trước Authentication và Authorization
+app.UseCors("AllowFrontend");
+
+// Thêm middleware để log response headers (dùng để debug)
+app.Use(async (context, next) =>
+{
+    Console.WriteLine($"Request: {context.Request.Method} {context.Request.Path}");
+    await next();
+    Console.WriteLine($"Response Headers: {string.Join(", ", context.Response.Headers.Select(h => $"{h.Key}: {h.Value}"))}");
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseSwagger();

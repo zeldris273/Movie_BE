@@ -16,6 +16,5 @@ namespace backend.Models
         public List<Comment> Comments { get; set; } = new List<Comment>();
         public List<WatchList> WatchList { get; set; }
         public List<Rating> Ratings { get; set; }
-        public List<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
     }
 }
