@@ -157,12 +157,23 @@ namespace backend.Controllers
             return Ok(result);
         }
 
-        // Endpoint cho URL xem phim: /api/movies/{id}/watch
-        [HttpGet("{id}/watch")]
-        public IActionResult WatchMovie(int id)
+        [HttpGet("{id}/{title}/watch")]
+        public IActionResult WatchMovie(int id, string title)
         {
             var movie = _context.Movies.Find(id);
             if (movie == null) return NotFound(new { error = "Movie not found" });
+
+            // Kiểm tra slug của title
+            string expectedSlug = movie.Title.ToLower()
+                .Replace(" ", "-")
+                .Trim();
+            expectedSlug = Regex.Replace(expectedSlug, "[^a-z0-9-]", "");
+            expectedSlug = Regex.Replace(expectedSlug, "-+", "-");
+
+            if (title != expectedSlug)
+            {
+                return NotFound(new { error = "Movie not found" });
+            }
 
             if (string.IsNullOrEmpty(movie.VideoUrl))
                 return BadRequest(new { error = "Video URL not available for this movie" });

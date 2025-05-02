@@ -94,20 +94,33 @@ namespace backend.Controllers
             return Ok(response);
         }
 
-        // Endpoint cho URL xem phim: /api/tvseries/{id}/{episodeId}/watch
-        [HttpGet("{id}/{episodeId}/watch")]
-        public IActionResult WatchTvSeriesEpisode(int id, int episodeId)
+        [HttpGet("{id}/{title}/episode/{episodeNumber}/watch")]
+        public IActionResult WatchTvSeriesEpisode(int id, string title, int episodeNumber)
         {
+            // Tìm TV series
             var series = _context.TvSeries.Find(id);
             if (series == null) return NotFound(new { error = "TV series not found" });
 
+            // Kiểm tra slug của title
+            string expectedSeriesSlug = series.Title.ToLower()
+                .Replace(" ", "-")
+                .Trim();
+            expectedSeriesSlug = Regex.Replace(expectedSeriesSlug, "[^a-z0-9-]", "");
+            expectedSeriesSlug = Regex.Replace(expectedSeriesSlug, "-+", "-");
+
+            if (title != expectedSeriesSlug)
+            {
+                return NotFound(new { error = "TV series not found" });
+            }
+
+            // Tìm episode dựa trên episodeNumber
             var episode = _context.Episodes
-                .Where(e => e.Id == episodeId)
+                .Where(e => e.Season.TvSeriesId == id && e.EpisodeNumber == episodeNumber)
                 .FirstOrDefault();
 
             if (episode == null) return NotFound(new { error = "Episode not found" });
 
-            // Kiểm tra xem episode có thuộc TV series không
+            // Kiểm tra thêm (nếu cần) xem episode có thuộc season hợp lệ
             var season = _context.Seasons.Find(episode.SeasonId);
             if (season == null || season.TvSeriesId != id)
                 return BadRequest(new { error = "Episode does not belong to this TV series" });
