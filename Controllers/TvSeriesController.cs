@@ -1,7 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System;
-using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
 using backend.Models;
@@ -50,22 +51,19 @@ namespace backend.Controllers
             return Ok(series);
         }
 
-        // Endpoint cho URL xem chi tiết: /api/tvseries/{id}/{title}
         [HttpGet("{id}/{title}")]
         public IActionResult GetTvSeries(int id, string title)
         {
             var series = _context.TvSeries.Find(id);
             if (series == null) return NotFound(new { error = "TV series not found" });
 
-            // Tăng ViewCount khi truy cập chi tiết
             series.ViewCount = (series.ViewCount ?? 0) + 1;
             _context.SaveChanges();
 
-            // Kiểm tra slug (title) để SEO
             string expectedSlug = series.Title.ToLower()
-         .Replace(" ", "-") // Thay khoảng trắng bằng dấu gạch ngang
-         .Trim(); // Bỏ khoảng trắng thừa
-            expectedSlug = Regex.Replace(expectedSlug, "[^a-z0-9-]", ""); // Bỏ ký tự không phải chữ, số, hoặc dấu gạch ngang
+                .Replace(" ", "-")
+                .Trim();
+            expectedSlug = Regex.Replace(expectedSlug, "[^a-z0-9-]", "");
             expectedSlug = Regex.Replace(expectedSlug, "-+", "-");
 
             Console.WriteLine($"Title: {title}");
@@ -97,11 +95,9 @@ namespace backend.Controllers
         [HttpGet("{id}/{title}/episode/{episodeNumber}/watch")]
         public IActionResult WatchTvSeriesEpisode(int id, string title, int episodeNumber)
         {
-            // Tìm TV series
             var series = _context.TvSeries.Find(id);
             if (series == null) return NotFound(new { error = "TV series not found" });
 
-            // Kiểm tra slug của title
             string expectedSeriesSlug = series.Title.ToLower()
                 .Replace(" ", "-")
                 .Trim();
@@ -113,14 +109,12 @@ namespace backend.Controllers
                 return NotFound(new { error = "TV series not found" });
             }
 
-            // Tìm episode dựa trên episodeNumber
             var episode = _context.Episodes
                 .Where(e => e.Season.TvSeriesId == id && e.EpisodeNumber == episodeNumber)
                 .FirstOrDefault();
 
             if (episode == null) return NotFound(new { error = "Episode not found" });
 
-            // Kiểm tra thêm (nếu cần) xem episode có thuộc season hợp lệ
             var season = _context.Seasons.Find(episode.SeasonId);
             if (season == null || season.TvSeriesId != id)
                 return BadRequest(new { error = "Episode does not belong to this TV series" });
@@ -254,8 +248,8 @@ namespace backend.Controllers
                     return BadRequest(new { error = "SeasonId is required and must be greater than 0" });
                 if (model.EpisodeNumber <= 0)
                     return BadRequest(new { error = "EpisodeNumber is required and must be greater than 0" });
-                if (model.VideoFile == null)
-                    return BadRequest(new { error = "VideoFile is required" });
+                if (model.HlsZipFile == null)
+                    return BadRequest(new { error = "HlsZipFile is required" });
 
                 var tvSeries = await _context.TvSeries.FindAsync(model.TvSeriesId);
                 if (tvSeries == null)
@@ -294,26 +288,51 @@ namespace backend.Controllers
                 if (existingEpisode != null)
                     return BadRequest(new { error = $"Episode {model.EpisodeNumber} for Season {season.Id} already exists" });
 
-                string videoFolder = $"tvseries/{season.TvSeriesId}/season-{season.SeasonNumber}/episode-{model.EpisodeNumber}";
-                string videoUrl = await _s3Service.UploadFileAsync(model.VideoFile, videoFolder);
+                // Tạo thư mục tạm để giải nén file .zip
+                var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+                Directory.CreateDirectory(tempDir);
 
-                var episode = new Episode
+                try
                 {
-                    SeasonId = season.Id,
-                    EpisodeNumber = model.EpisodeNumber,
-                    VideoUrl = videoUrl
-                };
-                _context.Episodes.Add(episode);
-                await _context.SaveChangesAsync();
+                    // Lưu file .zip tạm thời
+                    var zipPath = Path.Combine(tempDir, model.HlsZipFile.FileName);
+                    using (var stream = new FileStream(zipPath, FileMode.Create))
+                    {
+                        await model.HlsZipFile.CopyToAsync(stream);
+                    }
 
-                var response = new EpisodeResponseDTO
+                    // Giải nén file .zip
+                    var extractPath = Path.Combine(tempDir, "extracted");
+                    ZipFile.ExtractToDirectory(zipPath, extractPath);
+
+                    // Upload thư mục HLS lên S3
+                    string videoFolder = $"tvseries/{tvSeries.Title}/season-{season.SeasonNumber}/episode-{model.EpisodeNumber}";
+                    string videoUrl = await _s3Service.UploadHlsFolderAsync(extractPath, videoFolder);
+
+                    var episode = new Episode
+                    {
+                        SeasonId = season.Id,
+                        EpisodeNumber = model.EpisodeNumber,
+                        VideoUrl = videoUrl
+                    };
+                    _context.Episodes.Add(episode);
+                    await _context.SaveChangesAsync();
+
+                    var response = new EpisodeResponseDTO
+                    {
+                        Id = episode.Id,
+                        SeasonId = episode.SeasonId,
+                        EpisodeNumber = episode.EpisodeNumber,
+                        VideoUrl = episode.VideoUrl
+                    };
+                    return Ok(response);
+                }
+                finally
                 {
-                    Id = episode.Id,
-                    SeasonId = episode.SeasonId,
-                    EpisodeNumber = episode.EpisodeNumber,
-                    VideoUrl = episode.VideoUrl
-                };
-                return Ok(response);
+                    // Xóa thư mục tạm
+                    if (Directory.Exists(tempDir))
+                        Directory.Delete(tempDir, true);
+                }
             }
             catch (Exception ex)
             {

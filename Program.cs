@@ -12,22 +12,22 @@ using Microsoft.AspNetCore.Http.Features;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Tăng giới hạn kích thước request body (500MB)
+// Tăng giới hạn kích thước request body (2GB)
 builder.Services.Configure<IISServerOptions>(options =>
 {
-    options.MaxRequestBodySize = 1024 * 1024 * 500; // 500MB
+    options.MaxRequestBodySize = 1024L * 1024 * 2048; // 2GB
 });
 
 builder.Services.Configure<KestrelServerOptions>(options =>
 {
-    options.Limits.MaxRequestBodySize = 1024 * 1024 * 500; // 500MB
-    options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(10); // Tăng timeout lên 10 phút
-    options.Limits.RequestHeadersTimeout = TimeSpan.FromMinutes(10);
+    options.Limits.MaxRequestBodySize = 1024L * 1024 * 2048; // 2GB
+    options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(15); // Tăng timeout lên 15 phút
+    options.Limits.RequestHeadersTimeout = TimeSpan.FromMinutes(15);
 });
 
 builder.Services.Configure<FormOptions>(options =>
 {
-    options.MultipartBodyLengthLimit = 1024 * 1024 * 500; // 500MB
+    options.MultipartBodyLengthLimit = 1024L * 1024 * 2048; // 2GB
 });
 
 // Thêm dịch vụ controllers
@@ -91,7 +91,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", builder =>
     {
-        builder.WithOrigins("http://localhost:5173") // Chỉ định rõ nguồn gốc của frontend
+        builder.WithOrigins("http://localhost:5173", "http://localhost:5116") // Chỉ định rõ nguồn gốc của frontend
                .AllowAnyMethod()
                .AllowAnyHeader()
                .AllowCredentials(); // Cho phép gửi cookie

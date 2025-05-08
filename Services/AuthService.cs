@@ -87,7 +87,7 @@ namespace backend.Services
                 issuer: _config["Jwt:Issuer"],
                 audience: _config["Jwt:Audience"],
                 claims: claims,
-                expires: DateTime.Now.AddSeconds(10),
+                expires: DateTime.Now.AddHours(1), // Access token hết hạn sau 1 giờ
                 signingCredentials: creds
             );
 

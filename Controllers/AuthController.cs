@@ -25,7 +25,17 @@ namespace backend.Controllers
             var accessToken = _authService.GenerateJwtToken(user);
             var refreshToken = _authService.GenerateRefreshToken(user);
 
-            return Ok(new { AccessToken = accessToken, RefreshToken = refreshToken });
+            // Thêm cookie cho refresh token
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true, // Bảo vệ cookie khỏi XSS
+                Secure = true,   // Chỉ gửi qua HTTPS (dùng false khi test localhost)
+                Expires = DateTime.UtcNow.AddDays(7),
+                SameSite = SameSiteMode.None // Cho phép cross-site (thay đổi tùy môi trường)
+            };
+            Response.Cookies.Append("RefreshToken", refreshToken, cookieOptions);
+
+            return Ok(new { AccessToken = accessToken });
         }
 
         [HttpPost("logout")]
@@ -71,16 +81,30 @@ namespace backend.Controllers
         }
 
         [HttpPost("refresh-token")]
-        public IActionResult RefreshToken([FromBody] RefreshTokenRequest request)
+        public IActionResult RefreshToken()
         {
-            var user = _authService.ValidateRefreshToken(request.RefreshToken);
+            // Lấy refresh token từ cookie
+            if (!Request.Cookies.TryGetValue("RefreshToken", out var refreshToken))
+                return Unauthorized("Refresh token not found");
+
+            var user = _authService.ValidateRefreshToken(refreshToken);
             if (user == null)
                 return Unauthorized("Invalid or expired refresh token");
 
             var newAccessToken = _authService.GenerateJwtToken(user);
             var newRefreshToken = _authService.GenerateRefreshToken(user);
 
-            return Ok(new { AccessToken = newAccessToken, RefreshToken = newRefreshToken });
+            // Cập nhật cookie với refresh token mới
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                Expires = DateTime.UtcNow.AddDays(7),
+                SameSite = SameSiteMode.None
+            };
+            Response.Cookies.Append("RefreshToken", newRefreshToken, cookieOptions);
+
+            return Ok(new { AccessToken = newAccessToken });
         }
     }
 
