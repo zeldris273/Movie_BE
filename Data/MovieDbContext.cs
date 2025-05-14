@@ -43,6 +43,7 @@ namespace backend.Data
                 entity.Property(e => e.PosterUrl).HasColumnName("poster_url");
                 entity.Property(e => e.BackdropUrl).HasColumnName("backdrop_url");
                 entity.Property(e => e.VideoUrl).HasColumnName("video_url");
+                entity.Property(e => e.ViewCount).HasColumnName("view_count");
                 entity.Property(e => e.NumberOfRatings)
                           .HasColumnName("number_of_ratings");
             });

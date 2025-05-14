@@ -93,7 +93,7 @@ namespace backend.Controllers
         }
 
         [HttpGet("{id}/{title}/episode/{episodeNumber}/watch")]
-        public IActionResult WatchTvSeriesEpisode(int id, string title, int episodeNumber)
+        public async Task<IActionResult> WatchTvSeriesEpisode(int id, string title, int episodeNumber)
         {
             var series = _context.TvSeries.Find(id);
             if (series == null) return NotFound(new { error = "TV series not found" });
@@ -121,6 +121,9 @@ namespace backend.Controllers
 
             if (string.IsNullOrEmpty(episode.VideoUrl))
                 return BadRequest(new { error = "Video URL not available for this episode" });
+
+            series.ViewCount = (series.ViewCount ?? 0) + 1;
+            await _context.SaveChangesAsync();
 
             return Ok(new { videoUrl = episode.VideoUrl });
         }

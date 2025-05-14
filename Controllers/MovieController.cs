@@ -158,7 +158,7 @@ namespace backend.Controllers
         }
 
         [HttpGet("{id}/{title}/watch")]
-        public IActionResult WatchMovie(int id, string title)
+        public async Task<IActionResult> WatchMovie(int id, string title)
         {
             var movie = _context.Movies.Find(id);
             if (movie == null) return NotFound(new { error = "Movie not found" });
@@ -177,6 +177,9 @@ namespace backend.Controllers
 
             if (string.IsNullOrEmpty(movie.VideoUrl))
                 return BadRequest(new { error = "Video URL not available for this movie" });
+
+            movie.ViewCount += 1;
+            await _context.SaveChangesAsync();
 
             return Ok(new { videoUrl = movie.VideoUrl });
         }
