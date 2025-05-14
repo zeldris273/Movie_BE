@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using Movie_BE.Models;
 
 namespace backend.Models
 {
@@ -36,5 +37,6 @@ namespace backend.Models
 
         public List<Season> Seasons { get; set; } = new List<Season>();
         public List<Comment> Comments { get; set; } = new List<Comment>();
+        public List<TvSeriesActor> TvSeriesActors { get; set; } = new List<TvSeriesActor>();
     }
 }

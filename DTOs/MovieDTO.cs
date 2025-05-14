@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Http;
+using Movie_BE.DTOs;
 
 public class MovieDTO
 {
@@ -49,6 +50,7 @@ public class MovieUploadDTO
     public string Studio { get; set; }
 
     public string Director { get; set; }
+    public string Actors { get; set; } 
 
     [Required(ErrorMessage = "VideoFile is required")]
     public IFormFile VideoFile { get; set; }
@@ -77,4 +79,5 @@ public class MovieUploadDTO
         public string PosterUrl { get; set; }
         public string BackdropUrl { get; set; }
         public string TrailerUrl { get; set; }
+        public List<ActorDTO> Actors { get; set; }
     }

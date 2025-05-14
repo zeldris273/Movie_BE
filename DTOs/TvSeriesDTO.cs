@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Movie_BE.DTOs;
 
 namespace backend.DTOs
 {
@@ -31,6 +32,7 @@ namespace backend.DTOs
         public string PosterUrl { get; set; }
         public string BackdropUrl { get; set; }
         public string TrailerUrl { get; set; }
+        public List<ActorDTO> Actors { get; set; }
     }
     
     public class TvSeriesUploadDTO
@@ -42,6 +44,7 @@ namespace backend.DTOs
         public DateTime? ReleaseDate { get; set; }
         public string Studio { get; set; }
         public string Director { get; set; }
+        public string Actors { get; set; }
         public IFormFile PosterImageFile { get; set; } // Ảnh poster
         public IFormFile BackdropImageFile { get; set; } // Ảnh backdrop
     }

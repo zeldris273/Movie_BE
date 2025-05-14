@@ -8,6 +8,8 @@ using backend.Models;
 using backend.Data;
 using backend.Services;
 using System.Text.RegularExpressions;
+using Movie_BE.Models;
+using Movie_BE.DTOs;
 
 namespace backend.Controllers
 {
@@ -80,9 +82,47 @@ namespace backend.Controllers
                     Director = model.Director,
                     PosterUrl = posterUrl,
                     BackdropUrl = backdropUrl,
-                    VideoUrl = videoUrl
+                    VideoUrl = videoUrl,
+                    NumberOfRatings = 0,
+                    ViewCount = 0
                 };
+
                 _context.Movies.Add(movie);
+                await _context.SaveChangesAsync();
+
+                // Xử lý diễn viên
+                List<string> actors = string.IsNullOrEmpty(model.Actors)
+                    ? new List<string>()
+                    : model.Actors.Split(',').Select(actor => actor.Trim()).ToList();
+
+                foreach (var actorName in actors)
+                {
+                    if (!string.IsNullOrWhiteSpace(actorName))
+                    {
+                        var actor = await _context.Actors
+                            .FirstOrDefaultAsync(a => a.Name.ToLower() == actorName.ToLower());
+
+                        if (actor == null)
+                        {
+                            actor = new Actor
+                            {
+                                Name = actorName,
+                                CreatedAt = DateTime.UtcNow
+                            };
+                            _context.Actors.Add(actor);
+                            await _context.SaveChangesAsync();
+                        }
+
+                        var movieActor = new MovieActor
+                        {
+                            MovieId = movie.Id,
+                            ActorId = actor.Id,
+                            CharacterName = "" // Có thể thêm trường để nhập tên nhân vật
+                        };
+                        _context.Set<MovieActor>().Add(movieActor);
+                    }
+                }
+
                 await _context.SaveChangesAsync();
 
                 return Ok(new { videoUrl, imageUrls });
@@ -92,6 +132,7 @@ namespace backend.Controllers
                 return StatusCode(500, new { error = "Upload failed", details = ex.Message });
             }
         }
+
 
         [HttpGet]
         public IActionResult GetAllMovies()
@@ -122,15 +163,18 @@ namespace backend.Controllers
         [HttpGet("{id}/{title}")]
         public IActionResult GetMovie(int id, string title)
         {
-            var movie = _context.Movies.Find(id);
+            var movie = _context.Movies
+                .Include(m => m.MovieActors) // Tải MovieActors
+                .ThenInclude(ma => ma.Actor) // Tải Actor liên quan
+                .FirstOrDefault(m => m.Id == id);
+
             if (movie == null) return NotFound(new { error = "Movie not found" });
 
             string expectedSlug = movie.Title.ToLower()
-         .Replace(" ", "-") // Thay khoảng trắng bằng dấu gạch ngang
-         .Trim(); // Bỏ khoảng trắng thừa
-            expectedSlug = Regex.Replace(expectedSlug, "[^a-z0-9-]", ""); // Bỏ ký tự không phải chữ, số, hoặc dấu gạch ngang
+                .Replace(" ", "-")
+                .Trim();
+            expectedSlug = Regex.Replace(expectedSlug, "[^a-z0-9-]", "");
             expectedSlug = Regex.Replace(expectedSlug, "-+", "-");
-
 
             if (title != expectedSlug)
             {
@@ -152,7 +196,12 @@ namespace backend.Controllers
                 PosterUrl = movie.PosterUrl,
                 BackdropUrl = movie.BackdropUrl,
                 VideoUrl = movie.VideoUrl,
-                TrailerUrl = movie.TrailerUrl
+                TrailerUrl = movie.TrailerUrl,
+                Actors = movie.MovieActors.Select(ma => new ActorDTO
+                {
+                    Id = ma.Actor.Id,
+                    Name = ma.Actor.Name,
+                }).ToList()
             };
             return Ok(result);
         }

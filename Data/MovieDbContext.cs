@@ -16,7 +16,10 @@ namespace backend.Data
         public DbSet<Episode> Episodes { get; set; }
         public DbSet<Comment> Comments { get; set; }
         public DbSet<WatchList> WatchList { get; set; }
+        public DbSet<Actor> Actors { get; set; }
         public DbSet<Rating> Ratings { get; set; }
+        public DbSet<MovieActor> MovieActors { get; set; }
+        public DbSet<TvSeriesActor> TvSeriesActors { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -200,6 +203,57 @@ namespace backend.Data
 
                 entity.HasIndex(r => new { r.UserId, r.MediaId, r.MediaType })
                           .IsUnique();  // Mỗi user chỉ được đánh giá 1 lần cho 1 media
+            });
+
+            modelBuilder.Entity<Actor>(entity =>
+ {
+     entity.ToTable("actors");
+     entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedOnAdd();
+     entity.Property(e => e.Name).HasColumnName("name").IsRequired();
+     entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
+     entity.HasIndex(a => a.Name).IsUnique();
+ });
+
+            modelBuilder.Entity<MovieActor>(entity =>
+            {
+                entity.ToTable("movie_actor"); // Chỉ định rõ tên bảng
+                entity.HasKey(ma => new { ma.MovieId, ma.ActorId });
+                entity.Property(ma => ma.MovieId).HasColumnName("movie_id");
+                entity.Property(ma => ma.ActorId).HasColumnName("actor_id");
+                entity.Property(ma => ma.CharacterName).HasColumnName("character_name"); // Thêm ánh xạ
+
+                entity.HasOne(ma => ma.Movie)
+                      .WithMany(m => m.MovieActors)
+                      .HasForeignKey(ma => ma.MovieId)
+                      .OnDelete(DeleteBehavior.Cascade) // Thêm để khớp với schema
+                      .IsRequired();
+
+                entity.HasOne(ma => ma.Actor)
+                      .WithMany(a => a.MovieActors)
+                      .HasForeignKey(ma => ma.ActorId)
+                      .OnDelete(DeleteBehavior.Cascade) // Thêm để khớp với schema
+                      .IsRequired();
+            });
+
+            modelBuilder.Entity<TvSeriesActor>(entity =>
+            {
+                entity.ToTable("tvseries_actor"); // Chỉ định rõ tên bảng
+                entity.HasKey(ta => new { ta.TvSeriesId, ta.ActorId });
+                entity.Property(ta => ta.TvSeriesId).HasColumnName("tvseries_id");
+                entity.Property(ta => ta.ActorId).HasColumnName("actor_id");
+                entity.Property(ta => ta.CharacterName).HasColumnName("character_name"); // Thêm ánh xạ
+
+                entity.HasOne(ta => ta.TvSeries)
+                      .WithMany(t => t.TvSeriesActors)
+                      .HasForeignKey(ta => ta.TvSeriesId)
+                      .OnDelete(DeleteBehavior.Cascade) // Thêm để khớp với schema
+                      .IsRequired();
+
+                entity.HasOne(ta => ta.Actor)
+                      .WithMany(a => a.TvSeriesActors)
+                      .HasForeignKey(ta => ta.ActorId)
+                      .OnDelete(DeleteBehavior.Cascade) // Thêm để khớp với schema
+                      .IsRequired();
             });
         }
     }

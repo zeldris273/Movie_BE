@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using Movie_BE.Models;
 
 namespace backend.Models
 {
@@ -33,5 +34,6 @@ namespace backend.Models
         public string? TrailerUrl { get; set; } // Link video từ S3
         public int ViewCount { get; set; }
         public List<Comment> Comments { get; set; } = new List<Comment>();
+        public List<MovieActor> MovieActors { get; set; } = new List<MovieActor>();
     }
 }

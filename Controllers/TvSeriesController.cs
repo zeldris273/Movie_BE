@@ -11,6 +11,8 @@ using backend.DTOs;
 using backend.Services;
 using Microsoft.EntityFrameworkCore;
 using System.Text.RegularExpressions;
+using Movie_BE.DTOs;
+using Movie_BE.Models;
 
 namespace backend.Controllers
 {
@@ -54,7 +56,11 @@ namespace backend.Controllers
         [HttpGet("{id}/{title}")]
         public IActionResult GetTvSeries(int id, string title)
         {
-            var series = _context.TvSeries.Find(id);
+            var series = _context.TvSeries
+                .Include(s => s.TvSeriesActors) // Tải TvSeriesActors
+                .ThenInclude(ta => ta.Actor)    // Tải Actor liên quan
+                .FirstOrDefault(s => s.Id == id);
+
             if (series == null) return NotFound(new { error = "TV series not found" });
 
             series.ViewCount = (series.ViewCount ?? 0) + 1;
@@ -87,7 +93,12 @@ namespace backend.Controllers
                 Director = series.Director,
                 PosterUrl = series.PosterUrl,
                 BackdropUrl = series.BackdropUrl,
-                TrailerUrl = series.TrailerUrl
+                TrailerUrl = series.TrailerUrl,
+                Actors = series.TvSeriesActors.Select(ta => new ActorDTO
+                {
+                    Id = ta.Actor.Id,
+                    Name = ta.Actor.Name
+                }).ToList()
             };
             return Ok(response);
         }
@@ -178,6 +189,41 @@ namespace backend.Controllers
                 _context.Seasons.Add(season);
                 await _context.SaveChangesAsync();
 
+                // Xử lý diễn viên
+                List<string> actors = string.IsNullOrEmpty(model.Actors)
+                    ? new List<string>()
+                    : model.Actors.Split(',').Select(actor => actor.Trim()).ToList();
+
+                foreach (var actorName in actors)
+                {
+                    if (!string.IsNullOrWhiteSpace(actorName))
+                    {
+                        var actor = await _context.Actors
+                            .FirstOrDefaultAsync(a => a.Name.ToLower() == actorName.ToLower());
+
+                        if (actor == null)
+                        {
+                            actor = new Actor
+                            {
+                                Name = actorName,
+                                CreatedAt = DateTime.UtcNow
+                            };
+                            _context.Actors.Add(actor);
+                            await _context.SaveChangesAsync();
+                        }
+
+                        var tvSeriesActor = new TvSeriesActor
+                        {
+                            TvSeriesId = series.Id,
+                            ActorId = actor.Id,
+                            CharacterName = "" // Có thể thêm trường để nhập tên nhân vật
+                        };
+                        _context.Set<TvSeriesActor>().Add(tvSeriesActor);
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+
                 var response = new TvSeriesResponseDTO
                 {
                     Id = series.Id,
@@ -189,7 +235,12 @@ namespace backend.Controllers
                     Studio = series.Studio,
                     Director = series.Director,
                     PosterUrl = series.PosterUrl,
-                    BackdropUrl = series.BackdropUrl
+                    BackdropUrl = series.BackdropUrl,
+                    Actors = series.TvSeriesActors.Select(ta => new ActorDTO
+                    {
+                        Id = ta.Actor.Id,
+                        Name = ta.Actor.Name
+                    }).ToList()
                 };
                 return Ok(response);
             }
