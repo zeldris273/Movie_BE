@@ -456,6 +456,159 @@ namespace backend.Controllers
             return Ok(episode);
         }
 
+        [HttpPut("{id}")]
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> UpdateTvSeries(int id, [FromBody] TvSeriesResponseDTO model)
+        {
+            try
+            {
+                var series = await _context.TvSeries
+                    .Include(s => s.TvSeriesActors)
+                    .FirstOrDefaultAsync(s => s.Id == id);
+
+                if (series == null)
+                    return NotFound(new { error = "TV series not found" });
+
+                // Cập nhật các trường cơ bản
+                series.Title = model.Title ?? series.Title;
+                series.Overview = model.Overview ?? series.Overview;
+                series.Genres = model.Genres ?? series.Genres;
+                series.Status = model.Status ?? series.Status;
+                series.ReleaseDate = model.ReleaseDate ?? series.ReleaseDate;
+                series.Studio = model.Studio ?? series.Studio;
+                series.Director = model.Director ?? series.Director;
+                series.PosterUrl = model.PosterUrl ?? series.PosterUrl;
+                series.BackdropUrl = model.BackdropUrl ?? series.BackdropUrl;
+                series.TrailerUrl = model.TrailerUrl ?? series.TrailerUrl;
+
+                // Kiểm tra Status hợp lệ
+                var validStatuses = new[] { "Ongoing", "Completed", "Canceled" };
+                if (!string.IsNullOrEmpty(model.Status) && !validStatuses.Contains(model.Status))
+                {
+                    return BadRequest(new { error = "Invalid Status. Must be 'Ongoing', 'Completed', or 'Canceled'." });
+                }
+
+                // Xử lý diễn viên (xóa các liên kết cũ và thêm mới)
+                if (model.Actors != null && model.Actors.Any())
+                {
+                    // Xóa các liên kết TvSeriesActor cũ
+                    _context.Set<TvSeriesActor>().RemoveRange(series.TvSeriesActors);
+
+                    // Thêm các diễn viên mới
+                    foreach (var actorDto in model.Actors)
+                    {
+                        var actor = await _context.Actors
+                            .FirstOrDefaultAsync(a => a.Name.ToLower() == actorDto.Name.ToLower());
+
+                        if (actor == null)
+                        {
+                            actor = new Actor
+                            {
+                                Name = actorDto.Name,
+                                CreatedAt = DateTime.UtcNow
+                            };
+                            _context.Actors.Add(actor);
+                            await _context.SaveChangesAsync();
+                        }
+
+                        var tvSeriesActor = new TvSeriesActor
+                        {
+                            TvSeriesId = series.Id,
+                            ActorId = actor.Id,
+                            CharacterName = ""
+                        };
+                        _context.Set<TvSeriesActor>().Add(tvSeriesActor);
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+
+                var response = new TvSeriesResponseDTO
+                {
+                    Id = series.Id,
+                    Title = series.Title,
+                    Overview = series.Overview,
+                    Rating = (double?)series.Rating,
+                    NumberOfRatings = series.NumberOfRatings,
+                    Genres = series.Genres,
+                    Status = series.Status,
+                    ReleaseDate = series.ReleaseDate,
+                    Studio = series.Studio,
+                    Director = series.Director,
+                    PosterUrl = series.PosterUrl,
+                    BackdropUrl = series.BackdropUrl,
+                    TrailerUrl = series.TrailerUrl,
+                    Actors = series.TvSeriesActors.Select(ta => new ActorDTO
+                    {
+                        Id = ta.Actor.Id,
+                        Name = ta.Actor.Name
+                    }).ToList()
+                };
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Update failed", details = ex.Message });
+            }
+        }
+
+        [HttpDelete("{id}")]
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> DeleteTvSeries(int id)
+        {
+            try
+            {
+                var series = await _context.TvSeries
+                    .Include(s => s.TvSeriesActors)
+                    .Include(s => s.Seasons)
+                    .ThenInclude(s => s.Episodes)
+                    .FirstOrDefaultAsync(s => s.Id == id);
+
+                if (series == null)
+                    return NotFound(new { error = "TV series not found" });
+
+                // Xóa các liên kết TvSeriesActor
+                _context.Set<TvSeriesActor>().RemoveRange(series.TvSeriesActors);
+
+                // Xóa các episode trong season
+                foreach (var season in series.Seasons)
+                {
+                    var episodes = _context.Episodes.Where(e => e.SeasonId == season.Id);
+                    _context.Episodes.RemoveRange(episodes);
+                }
+
+                // Xóa các season
+                _context.Seasons.RemoveRange(series.Seasons);
+
+                // Xóa TV series
+                _context.TvSeries.Remove(series);
+
+                // Xóa các file liên quan trên S3 (poster, backdrop, episodes)
+                // if (!string.IsNullOrEmpty(series.PosterUrl))
+                //     await _s3Service.DeleteFileAsync(series.PosterUrl);
+                // if (!string.IsNullOrEmpty(series.BackdropUrl))
+                //     await _s3Service.DeleteFileAsync(series.BackdropUrl);
+
+                // foreach (var season in series.Seasons)
+                // {
+                //     var episodes = _context.Episodes.Where(e => e.SeasonId == season.Id);
+                //     foreach (var episode in episodes)
+                //     {
+                //         if (!string.IsNullOrEmpty(episode.VideoUrl))
+                //             await _s3Service.DeleteFileAsync(episode.VideoUrl);
+                //     }
+                // }
+
+                await _context.SaveChangesAsync();
+                return Ok(new { message = "TV series deleted successfully" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Delete failed", details = ex.Message });
+            }
+        }
+
+
         [HttpGet("most-viewed")]
         public async Task<IActionResult> GetMostViewedTvSeries()
         {
