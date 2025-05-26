@@ -37,17 +37,10 @@ namespace backend.Controllers
                 {
                     Id = s.Id,
                     Title = s.Title,
-                    Overview = s.Overview,
                     Rating = (double?)s.Rating,
-                    NumberOfRatings = s.NumberOfRatings,
-                    Genres = s.Genres,
-                    Status = s.Status,
                     ReleaseDate = s.ReleaseDate,
-                    Studio = s.Studio,
-                    Director = s.Director,
                     PosterUrl = s.PosterUrl,
-                    BackdropUrl = s.BackdropUrl,
-                    TrailerUrl = s.TrailerUrl
+                    BackdropUrl = s.BackdropUrl
                 })
                 .ToList();
             return Ok(series);

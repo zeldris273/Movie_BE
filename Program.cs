@@ -9,6 +9,7 @@ using System.Text;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.Server.IISIntegration;
 using Microsoft.AspNetCore.Http.Features;
+using Movie_BE.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,7 +22,7 @@ builder.Services.Configure<IISServerOptions>(options =>
 builder.Services.Configure<KestrelServerOptions>(options =>
 {
     options.Limits.MaxRequestBodySize = 1024L * 1024 * 2048; // 2GB
-    options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(15); // Tăng timeout lên 15 phút
+    options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(15);
     options.Limits.RequestHeadersTimeout = TimeSpan.FromMinutes(15);
 });
 
@@ -32,6 +33,16 @@ builder.Services.Configure<FormOptions>(options =>
 
 // Thêm dịch vụ controllers
 builder.Services.AddControllers();
+
+// Thêm HttpClient
+builder.Services.AddHttpClient();
+
+// Thêm logging
+builder.Services.AddLogging(logging =>
+{
+    logging.AddConsole();
+    logging.AddDebug();
+});
 
 // Thêm Swagger
 builder.Services.AddSwaggerGen();
@@ -44,7 +55,7 @@ builder.Services.AddSingleton<IAmazonS3>(sp =>
 {
     var s3Config = new AmazonS3Config
     {
-        RegionEndpoint = Amazon.RegionEndpoint.APNortheast1 // ap-northeast-1 (Tokyo)
+        RegionEndpoint = Amazon.RegionEndpoint.APNortheast1
     };
     return new AmazonS3Client(
         builder.Configuration["AWS:AccessKey"],
@@ -53,6 +64,9 @@ builder.Services.AddSingleton<IAmazonS3>(sp =>
 });
 
 builder.Services.AddScoped<S3Service>();
+
+// Đăng ký MovieChatbotSearchService
+builder.Services.AddSingleton<MovieChatbotSearchService>();
 
 // Đăng ký DbContext
 builder.Services.AddDbContext<MovieDbContext>(options =>
@@ -91,10 +105,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", builder =>
     {
-        builder.WithOrigins("http://localhost:5173", "http://localhost:5116") // Chỉ định rõ nguồn gốc của frontend
+        builder.WithOrigins("http://localhost:5173", "http://localhost:5116")
                .AllowAnyMethod()
                .AllowAnyHeader()
-               .AllowCredentials(); // Cho phép gửi cookie
+               .AllowCredentials();
     });
 });
 
@@ -102,18 +116,7 @@ var app = builder.Build();
 
 // Middleware pipeline
 app.UseRouting();
-
-// Đảm bảo CORS được gọi trước Authentication và Authorization
 app.UseCors("AllowFrontend");
-
-// Thêm middleware để log response headers (dùng để debug)
-app.Use(async (context, next) =>
-{
-    Console.WriteLine($"Request: {context.Request.Method} {context.Request.Path}");
-    await next();
-    Console.WriteLine($"Response Headers: {string.Join(", ", context.Response.Headers.Select(h => $"{h.Key}: {h.Value}"))}");
-});
-
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseSwagger();

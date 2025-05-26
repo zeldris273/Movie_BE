@@ -73,9 +73,17 @@
               "target": "Package",
               "version": "[8.0.13, )"
             },
+            "Microsoft.Extensions.Http": {
+              "target": "Package",
+              "version": "[6.0.0, )"
+            },
             "MySql.Data": {
               "target": "Package",
               "version": "[8.4.0, )"
+            },
+            "OpenAI": {
+              "target": "Package",
+              "version": "[1.7.2, )"
             },
             "Pomelo.EntityFrameworkCore.MySql": {
               "target": "Package",

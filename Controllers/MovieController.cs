@@ -142,18 +142,10 @@ namespace backend.Controllers
             {
                 Id = m.Id,
                 Title = m.Title,
-                Overview = m.Overview,
-                Genres = m.Genres,
-                Status = m.Status,
                 Rating = (double?)m.Rating,
-                NumberOfRatings = m.NumberOfRatings,
                 ReleaseDate = m.ReleaseDate,
-                Studio = m.Studio,
-                Director = m.Director,
                 PosterUrl = m.PosterUrl,
                 BackdropUrl = m.BackdropUrl,
-                VideoUrl = m.VideoUrl,
-                TrailerUrl = m.TrailerUrl
             });
             return Ok(result);
         }
