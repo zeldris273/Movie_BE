@@ -33,13 +33,13 @@ namespace Movie_BE.Services
                 var openAi = new OpenAIAPI(openAiKey);
 
                 // Create prompt for Open AI to extract movie titles and criteria
-                var prompt = $"Based on this description: '{description}', suggest 1-3 specific titles that can be tv series or movie matching the described theme or story. If the description involves a weak protagonist (e.g., a hunter) rising to become a powerful figure (e.g., an emperor or ruler) in a modern or fantasy setting with a ranking system, prioritize titles like 'Solo Leveling'. For other descriptions, suggest relevant titles across anime, live-action, or theatrical films. Include key search criteria (e.g., genre, year, actors, themes, keywords). Return the result in a structured JSON format like {{\"MovieTitles\": [], \"Genre\": \"\", \"Year\": \"\", \"Actors\": \"\", \"Themes\": \"\", \"Keywords\": \"\"}}. Ensure titles are specific, relevant, and diverse.";
+                var prompt = $"Based on this description: '{description}', suggest 1-3 specific titles that can be tv series or movie matching the described theme or story. Include key search criteria (e.g., genre, year, actors, themes, keywords). Return the result in a VALID JSON format with double quotes around property names, like {{\"MovieTitles\": [], \"Genre\": \"\", \"Year\": \"\", \"Actors\": \"\", \"Themes\": \"\", \"Keywords\": \"\"}}. Ensure titles are specific, relevant, and diverse. If the question is not related to movies, return {{\"Error\": \"Invalid question\"}}.";
                 var chatRequest = new ChatRequest
                 {
                     Model = "gpt-3.5-turbo",
                     Messages = new[]
                     {
-                        new ChatMessage(ChatMessageRole.System, "You are a helpful assistant that suggests 1-3 specific tv series, or movie based on user descriptions, returning them in JSON format. Prioritize 'Solo Leveling' for descriptions about a weak hunter becoming a powerful ruler. Ensure suggestions are relevant and diverse across genres and formats."),
+                        new ChatMessage(ChatMessageRole.System, "You are a helpful assistant that suggests 1-3 specific tv series or movies based on user descriptions, returning them in VALID JSON format with double quotes around property names. If the question is not related to movies, return {\"Error\": \"Invalid question\"}."),
                         new ChatMessage(ChatMessageRole.User, prompt)
                     },
                     MaxTokens = 300,
@@ -48,7 +48,7 @@ namespace Movie_BE.Services
 
                 _logger.LogInformation("Sending request to Open AI with prompt: {Prompt}", prompt);
                 var result = await openAi.Chat.CreateChatCompletionAsync(chatRequest);
-                var searchCriteriaJson = result.Choices[0].Message.Content;
+                var searchCriteriaJson = result.Choices[0].Message.Content.Trim();
 
                 // Validate JSON
                 if (string.IsNullOrWhiteSpace(searchCriteriaJson))
@@ -59,7 +59,26 @@ namespace Movie_BE.Services
 
                 _logger.LogInformation("Received Open AI response: {Json}", searchCriteriaJson);
 
-                // Parse Open AI response to ensure it's valid JSON
+                // Try to parse JSON and handle potential invalid formats
+                JsonElement jsonElement;
+                try
+                {
+                    jsonElement = JsonSerializer.Deserialize<JsonElement>(searchCriteriaJson);
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogError(ex, "Failed to parse Open AI response as JSON: {Json}", searchCriteriaJson);
+                    // Return a default error response if JSON is invalid
+                    return JsonSerializer.Serialize(new { Error = "Invalid response format from Open AI" });
+                }
+
+                // Check if the response contains an error
+                if (jsonElement.TryGetProperty("Error", out var errorElement))
+                {
+                    return JsonSerializer.Serialize(new { Error = errorElement.GetString() });
+                }
+
+                // Parse into MovieSearchCriteria if no error
                 MovieSearchCriteria searchCriteria;
                 try
                 {
@@ -67,8 +86,8 @@ namespace Movie_BE.Services
                 }
                 catch (JsonException ex)
                 {
-                    _logger.LogError(ex, "Failed to parse Open AI response as JSON: {Json}", searchCriteriaJson);
-                    throw new Exception("Failed to parse Open AI response as JSON.", ex);
+                    _logger.LogError(ex, "Failed to parse Open AI response as MovieSearchCriteria: {Json}", searchCriteriaJson);
+                    throw new Exception("Failed to parse Open AI response as MovieSearchCriteria.", ex);
                 }
 
                 if (searchCriteria == null)
