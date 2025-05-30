@@ -87,6 +87,76 @@ namespace backend.Services
             return $"https://{BucketName}.s3.amazonaws.com/{key}";
         }
 
-        
+        public async Task DeleteFileAsync(string fileUrl)
+        {
+            if (string.IsNullOrEmpty(fileUrl))
+                throw new ArgumentException("File URL không hợp lệ.");
+
+            // Trích xuất key từ URL (loại bỏ domain và bucket)
+            var key = fileUrl.Replace($"https://{BucketName}.s3.amazonaws.com/", "");
+
+            var request = new DeleteObjectRequest
+            {
+                BucketName = BucketName,
+                Key = key
+            };
+
+            await _s3Client.DeleteObjectAsync(request);
+        }
+
+        public async Task DeleteFolderAsync(string folderPrefix)
+        {
+            if (string.IsNullOrEmpty(folderPrefix))
+                throw new ArgumentException("Folder prefix không hợp lệ.");
+
+            folderPrefix = folderPrefix.TrimEnd('/'); // Đảm bảo không kết thúc bằng "/"
+
+            try
+            {
+                var listRequest = new ListObjectsV2Request
+                {
+                    BucketName = BucketName,
+                    Prefix = folderPrefix,
+                };
+
+                var objectsToDelete = new List<KeyVersion>();
+                ListObjectsV2Response response;
+                do
+                {
+                    response = await _s3Client.ListObjectsV2Async(listRequest);
+
+                    objectsToDelete.AddRange(response.S3Objects.Select(obj => new KeyVersion { Key = obj.Key }));
+
+                    if (objectsToDelete.Count >= 1000) // Giới hạn 1000 object mỗi lần xóa
+                    {
+                        var deleteRequest = new DeleteObjectsRequest
+                        {
+                            BucketName = BucketName,
+                            Objects = objectsToDelete,
+                            Quiet = true
+                        };
+                        await _s3Client.DeleteObjectsAsync(deleteRequest);
+                        objectsToDelete.Clear();
+                    }
+
+                    listRequest.ContinuationToken = response.NextContinuationToken;
+                } while (response.IsTruncated);
+
+                if (objectsToDelete.Any())
+                {
+                    var deleteRequest = new DeleteObjectsRequest
+                    {
+                        BucketName = BucketName,
+                        Objects = objectsToDelete,
+                        Quiet = true
+                    };
+                    await _s3Client.DeleteObjectsAsync(deleteRequest);
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Lỗi khi xóa thư mục trên S3: {ex.Message}");
+            }
+        }
     }
 }

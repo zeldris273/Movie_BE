@@ -25,13 +25,12 @@ namespace backend.Controllers
             var accessToken = _authService.GenerateJwtToken(user);
             var refreshToken = _authService.GenerateRefreshToken(user);
 
-            // Thêm cookie cho refresh token
             var cookieOptions = new CookieOptions
             {
-                HttpOnly = true, // Bảo vệ cookie khỏi XSS
-                Secure = true,   // Chỉ gửi qua HTTPS (dùng false khi test localhost)
+                HttpOnly = true,
+                Secure = true,
                 Expires = DateTime.UtcNow.AddDays(7),
-                SameSite = SameSiteMode.None // Cho phép cross-site (thay đổi tùy môi trường)
+                SameSite = SameSiteMode.None
             };
             Response.Cookies.Append("RefreshToken", refreshToken, cookieOptions);
 
@@ -41,8 +40,6 @@ namespace backend.Controllers
         [HttpPost("logout")]
         public IActionResult Logout()
         {
-            // Vì refreshToken là stateless, không thể thu hồi token.
-            // Client nên xóa token ở phía frontend.
             return Ok("Logged out successfully. Please clear your tokens on the client side.");
         }
 
@@ -83,7 +80,6 @@ namespace backend.Controllers
         [HttpPost("refresh-token")]
         public IActionResult RefreshToken()
         {
-            // Lấy refresh token từ cookie
             if (!Request.Cookies.TryGetValue("RefreshToken", out var refreshToken))
                 return Unauthorized("Refresh token not found");
 
@@ -94,7 +90,6 @@ namespace backend.Controllers
             var newAccessToken = _authService.GenerateJwtToken(user);
             var newRefreshToken = _authService.GenerateRefreshToken(user);
 
-            // Cập nhật cookie với refresh token mới
             var cookieOptions = new CookieOptions
             {
                 HttpOnly = true,
@@ -105,6 +100,36 @@ namespace backend.Controllers
             Response.Cookies.Append("RefreshToken", newRefreshToken, cookieOptions);
 
             return Ok(new { AccessToken = newAccessToken });
+        }
+
+        // API để yêu cầu đặt lại mật khẩu
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+        {
+            var emailExists = await _authService.EmailExists(request.Email);
+            if (!emailExists)
+                return BadRequest("Email does not exist");
+
+            var success = await _authService.SendOtp(request.Email);
+            if (!success)
+                return BadRequest("Failed to send OTP");
+
+            return Ok("OTP sent to your email. Please verify to reset your password.");
+        }
+
+        // API để xác minh OTP và đặt lại mật khẩu
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+        {
+            var isValid = _authService.VerifyOtp(request.Email, request.Otp);
+            if (!isValid)
+                return BadRequest("Invalid OTP");
+
+            var success = await _authService.ResetPassword(request.Email, request.Password);
+            if (!success)
+                return BadRequest("Failed to reset password");
+
+            return Ok("Password reset successfully");
         }
     }
 
@@ -135,5 +160,18 @@ namespace backend.Controllers
     public class RefreshTokenRequest
     {
         public string RefreshToken { get; set; }
+    }
+
+    // Thêm DTO cho quên mật khẩu
+    public class ForgotPasswordRequest
+    {
+        public string Email { get; set; }
+    }
+
+    public class ResetPasswordRequest
+    {
+        public string Email { get; set; }
+        public string Otp { get; set; }
+        public string Password { get; set; }
     }
 }

@@ -207,5 +207,33 @@ namespace backend.Services
             }
             return false;
         }
+
+        public async Task<bool> EmailExists(string email)
+        {
+            using var conn = new MySqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            var cmd = new MySqlCommand("SELECT COUNT(*) FROM Users WHERE Email = @Email", conn);
+            cmd.Parameters.AddWithValue("@Email", email.Trim());
+            var count = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+            return count > 0;
+        }
+
+        // Thêm phương thức để đặt lại mật khẩu
+        public async Task<bool> ResetPassword(string email, string newPassword)
+        {
+            using var conn = new MySqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            var passwordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            var cmd = new MySqlCommand(
+                "UPDATE Users SET PasswordHash = @PasswordHash WHERE Email = @Email",
+                conn);
+            cmd.Parameters.AddWithValue("@Email", email.Trim());
+            cmd.Parameters.AddWithValue("@PasswordHash", passwordHash);
+
+            var rowsAffected = await cmd.ExecuteNonQueryAsync();
+            return rowsAffected > 0;
+        }
     }
 }

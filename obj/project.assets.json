@@ -4817,11 +4817,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\nvh\\Downloads\\Compressed\\Git\\Movie_BE\\backend.csproj",
+      "projectUniqueName": "C:\\Users\\nvh\\Downloads\\Compressed\\DoAn\\Movie_BE\\backend.csproj",
       "projectName": "backend",
-      "projectPath": "C:\\Users\\nvh\\Downloads\\Compressed\\Git\\Movie_BE\\backend.csproj",
+      "projectPath": "C:\\Users\\nvh\\Downloads\\Compressed\\DoAn\\Movie_BE\\backend.csproj",
       "packagesPath": "C:\\Users\\nvh\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\nvh\\Downloads\\Compressed\\Git\\Movie_BE\\obj\\",
+      "outputPath": "C:\\Users\\nvh\\Downloads\\Compressed\\DoAn\\Movie_BE\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\nvh\\AppData\\Roaming\\NuGet\\NuGet.Config"
