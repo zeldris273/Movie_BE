@@ -40,6 +40,17 @@ namespace backend.Controllers
                     Rating = (double?)s.Rating,
                     ReleaseDate = s.ReleaseDate,
                     PosterUrl = s.PosterUrl,
+                    Genres = s.Genres,
+                    Status = s.Status,
+                    Overview = s.Overview,
+                    Director = s.Director,
+                    Studio = s.Studio,
+                    TrailerUrl = s.TrailerUrl,
+                    Actors = s.TvSeriesActors.Select(ta => new ActorDTO
+                    {
+                        Id = ta.Actor.Id,
+                        Name = ta.Actor.Name
+                    }).ToList(),
                     BackdropUrl = s.BackdropUrl
                 })
                 .ToList();
@@ -575,22 +586,6 @@ namespace backend.Controllers
 
                 // Xóa TV series
                 _context.TvSeries.Remove(series);
-
-                // Xóa các file liên quan trên S3 (poster, backdrop, episodes)
-                // if (!string.IsNullOrEmpty(series.PosterUrl))
-                //     await _s3Service.DeleteFileAsync(series.PosterUrl);
-                // if (!string.IsNullOrEmpty(series.BackdropUrl))
-                //     await _s3Service.DeleteFileAsync(series.BackdropUrl);
-
-                // foreach (var season in series.Seasons)
-                // {
-                //     var episodes = _context.Episodes.Where(e => e.SeasonId == season.Id);
-                //     foreach (var episode in episodes)
-                //     {
-                //         if (!string.IsNullOrEmpty(episode.VideoUrl))
-                //             await _s3Service.DeleteFileAsync(episode.VideoUrl);
-                //     }
-                // }
 
                 await _context.SaveChangesAsync();
                 return Ok(new { message = "TV series deleted successfully" });

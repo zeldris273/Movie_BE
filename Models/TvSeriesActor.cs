@@ -8,6 +8,7 @@ namespace Movie_BE.Models
 {
     public class TvSeriesActor
     {
+        public int Id { get; set; }
         public int TvSeriesId { get; set; }
         public TvSeries TvSeries { get; set; }
         public int ActorId { get; set; }

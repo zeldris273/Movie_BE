@@ -14,6 +14,6 @@ namespace Movie_BE.Models
         public string MediaType { get; set; } // "movie" hoặc "tv"
         public DateTime AddedDate { get; set; }
 
-        public User User { get; set; }
+        public CustomUser User { get; set; }
     }
 }   

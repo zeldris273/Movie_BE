@@ -1,126 +1,139 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using MySql.Data.MySqlClient;
-using BCrypt.Net;
 using System.Net.Mail;
 using System.Net;
 using backend.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Services
 {
     public class AuthService
     {
         private readonly IConfiguration _config;
-        private readonly string _connectionString;
         private readonly IMemoryCache _cache;
+        private readonly UserManager<CustomUser> _userManager;
+        private readonly SignInManager<CustomUser> _signInManager;
+        private readonly RoleManager<IdentityRole<int>> _roleManager;
 
-        public AuthService(IConfiguration config, IMemoryCache cache)
+        public AuthService(
+            IConfiguration config,
+            IMemoryCache cache,
+            UserManager<CustomUser> userManager,
+            SignInManager<CustomUser> signInManager,
+            RoleManager<IdentityRole<int>> roleManager)
         {
             _config = config;
             _cache = cache;
-            _connectionString = _config.GetConnectionString("DefaultConnection");
+            _userManager = userManager;
+            _signInManager = signInManager;
+            _roleManager = roleManager;
         }
 
-        public async Task<bool> RegisterUser(string email, string password)
+        public async Task<bool> RegisterUser(string email, string password, string role = "User")
         {
-            using var conn = new MySqlConnection(_connectionString);
-            await conn.OpenAsync();
-
-            var checkCmd = new MySqlCommand("SELECT COUNT(*) FROM Users WHERE Email = @Email", conn);
-            checkCmd.Parameters.AddWithValue("@Email", email.Trim());
-            var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
-            if (count > 0)
+            var existingUser = await _userManager.FindByEmailAsync(email.Trim());
+            if (existingUser != null)
                 return false;
 
-            var passwordHash = BCrypt.Net.BCrypt.HashPassword(password);
-            var insertCmd = new MySqlCommand(
-                "INSERT INTO Users (Email, PasswordHash) VALUES (@Email, @PasswordHash)",
-                conn);
-            insertCmd.Parameters.AddWithValue("@Email", email.Trim());
-            insertCmd.Parameters.AddWithValue("@PasswordHash", passwordHash);
+            var user = new CustomUser
+            { 
+                UserName = email.Trim(),
+                Email = email.Trim(),
+                CreatedAt = DateTime.UtcNow
+            };
 
-            var rowsAffected = await insertCmd.ExecuteNonQueryAsync();
-            return rowsAffected > 0;
+            var result = await _userManager.CreateAsync(user, password);
+            if (result.Succeeded)
+            {
+                // Kiểm tra và tạo role nếu chưa tồn tại
+                if (!await _roleManager.RoleExistsAsync(role))
+                {
+                    await _roleManager.CreateAsync(new IdentityRole<int> { Name = role, NormalizedName = role.ToUpper() });
+                }
+
+                // Gán role cho user
+                await _userManager.AddToRoleAsync(user, role);
+                return true;
+            }
+            return false;
         }
 
-        public async Task<User> ValidateUser(string email, string password)
+        public async Task<CustomUser> ValidateUser(string email, string password)
         {
-            using var conn = new MySqlConnection(_connectionString);
-            await conn.OpenAsync();
-
-            var cmd = new MySqlCommand("SELECT Id, Email, PasswordHash, Role FROM Users WHERE Email = @Email", conn);
-            cmd.Parameters.AddWithValue("@Email", email.Trim());
-
-            using var reader = await cmd.ExecuteReaderAsync();
-            if (await reader.ReadAsync())
+            var user = await _userManager.FindByEmailAsync(email.Trim());
+            if (user == null)
             {
-                var user = new User
-                {
-                    Id = reader.GetInt32(reader.GetOrdinal("Id")),
-                    Email = reader.GetString(reader.GetOrdinal("Email")),
-                    PasswordHash = reader.IsDBNull(reader.GetOrdinal("PasswordHash")) ? "" : reader.GetString(reader.GetOrdinal("PasswordHash")),
-                    Role = reader.IsDBNull(reader.GetOrdinal("Role")) ? "User" : reader.GetString(reader.GetOrdinal("Role")),
-                };
+                return null;
+            }
 
-                if (BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
-                    return user;
+            var result = await _signInManager.CheckPasswordSignInAsync(user, password, false);
+            if (result.Succeeded)
+            {
+                return user;
             }
             return null;
         }
 
-        public string GenerateJwtToken(User user)
+        public async Task<string> GenerateJwtToken(CustomUser user)
         {
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-            var claims = new[]
+            // Lấy danh sách role của user
+            var roles = await _userManager.GetRolesAsync(user);
+            var roleClaims = roles.Select(role => new Claim(ClaimTypes.Role, role));
+
+            var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, user.Email),
-                new Claim(ClaimTypes.Role, user.Role)
+                new Claim(ClaimTypes.Email, user.Email),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
+            claims.AddRange(roleClaims);
 
             var token = new JwtSecurityToken(
                 issuer: _config["Jwt:Issuer"],
                 audience: _config["Jwt:Audience"],
                 claims: claims,
-                expires: DateTime.Now.AddHours(1), // Access token hết hạn sau 1 giờ
+                expires: DateTime.UtcNow.AddHours(1),
                 signingCredentials: creds
             );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        // Tạo refresh token dưới dạng JWT
-        public string GenerateRefreshToken(User user)
+        public async Task<string> GenerateRefreshToken(CustomUser user)
         {
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:RefreshKey"]));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-            var claims = new[]
+            // Lấy danh sách role của user
+            var roles = await _userManager.GetRolesAsync(user);
+            var roleClaims = roles.Select(role => new Claim(ClaimTypes.Role, role));
+
+            var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, user.Email),
-                new Claim(ClaimTypes.Role, user.Role)
+                new Claim(ClaimTypes.Email, user.Email)
             };
+            claims.AddRange(roleClaims);
 
             var token = new JwtSecurityToken(
                 issuer: _config["Jwt:Issuer"],
                 audience: _config["Jwt:Audience"],
                 claims: claims,
-                expires: DateTime.Now.AddDays(7), // Refresh token hết hạn sau 7 ngày (giảm thời gian sống để tăng bảo mật)
+                expires: DateTime.UtcNow.AddDays(7),
                 signingCredentials: creds
             );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        // Xác thực refresh token (dạng JWT)
-        public User ValidateRefreshToken(string refreshToken)
+        public async Task<CustomUser> ValidateRefreshToken(string refreshToken)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.UTF8.GetBytes(_config["Jwt:RefreshKey"]);
@@ -142,16 +155,12 @@ namespace backend.Services
                 if (string.IsNullOrEmpty(userIdClaim))
                     return null;
 
-                return new User
-                {
-                    Id = int.Parse(userIdClaim),
-                    Email = principal.FindFirst(ClaimTypes.Name)?.Value,
-                    Role = principal.FindFirst(ClaimTypes.Role)?.Value ?? "User"
-                };
+                var user = await _userManager.FindByIdAsync(userIdClaim);
+                return user;
             }
             catch
             {
-                return null; // Token không hợp lệ hoặc đã hết hạn
+                return null;
             }
         }
 
@@ -210,30 +219,18 @@ namespace backend.Services
 
         public async Task<bool> EmailExists(string email)
         {
-            using var conn = new MySqlConnection(_connectionString);
-            await conn.OpenAsync();
-
-            var cmd = new MySqlCommand("SELECT COUNT(*) FROM Users WHERE Email = @Email", conn);
-            cmd.Parameters.AddWithValue("@Email", email.Trim());
-            var count = Convert.ToInt32(await cmd.ExecuteScalarAsync());
-            return count > 0;
+            return await _userManager.FindByEmailAsync(email.Trim()) != null;
         }
 
-        // Thêm phương thức để đặt lại mật khẩu
         public async Task<bool> ResetPassword(string email, string newPassword)
         {
-            using var conn = new MySqlConnection(_connectionString);
-            await conn.OpenAsync();
+            var user = await _userManager.FindByEmailAsync(email.Trim());
+            if (user == null)
+                return false;
 
-            var passwordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
-            var cmd = new MySqlCommand(
-                "UPDATE Users SET PasswordHash = @PasswordHash WHERE Email = @Email",
-                conn);
-            cmd.Parameters.AddWithValue("@Email", email.Trim());
-            cmd.Parameters.AddWithValue("@PasswordHash", passwordHash);
-
-            var rowsAffected = await cmd.ExecuteNonQueryAsync();
-            return rowsAffected > 0;
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var result = await _userManager.ResetPasswordAsync(user, token, newPassword);
+            return result.Succeeded;
         }
     }
 }

@@ -10,6 +10,9 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.Server.IISIntegration;
 using Microsoft.AspNetCore.Http.Features;
 using Movie_BE.Services;
+using backend.Models;
+using Microsoft.AspNetCore.Identity;
+using Pomelo.EntityFrameworkCore.MySql.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,6 +33,26 @@ builder.Services.Configure<FormOptions>(options =>
 {
     options.MultipartBodyLengthLimit = 1024L * 1024 * 2048; // 2GB
 });
+
+// Đăng ký DbContext với MySQL
+builder.Services.AddDbContext<MovieDbContext>(options =>
+    options.UseMySql(builder.Configuration.GetConnectionString("DefaultConnection"),
+        serverVersion: new MySqlServerVersion(new Version(8, 0, 29)), // Chỉ định phiên bản MySQL
+        mySqlOptions => mySqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(30),
+            errorNumbersToAdd: null)));
+
+builder.Services.AddIdentity<CustomUser, IdentityRole<int>>(options =>
+{
+    options.Password.RequireDigit = true;
+    options.Password.RequiredLength = 6;
+    options.Password.RequireNonAlphanumeric = false;
+    options.Password.RequireUppercase = false;
+    options.Password.RequireLowercase = false;
+})
+.AddEntityFrameworkStores<MovieDbContext>()
+.AddDefaultTokenProviders();
 
 // Thêm dịch vụ controllers
 builder.Services.AddControllers();
@@ -67,11 +90,6 @@ builder.Services.AddScoped<S3Service>();
 
 // Đăng ký MovieChatbotSearchService
 builder.Services.AddSingleton<MovieChatbotSearchService>();
-
-// Đăng ký DbContext
-builder.Services.AddDbContext<MovieDbContext>(options =>
-    options.UseMySql(builder.Configuration.GetConnectionString("DefaultConnection"),
-        new MySqlServerVersion(new Version(8, 0, 29))));
 
 // Cấu hình Swagger
 builder.Services.AddSwaggerGen(c =>
@@ -113,6 +131,22 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Seed roles khi ứng dụng khởi động
+using (var scope = app.Services.CreateScope())
+{
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<int>>>();
+    var roles = new[] { "Admin", "User" };
+
+    foreach (var role in roles)
+    {
+        if (!await roleManager.RoleExistsAsync(role))
+        {
+            await roleManager.CreateAsync(new IdentityRole<int> { Name = role, NormalizedName = role.ToUpper() });
+            Console.WriteLine($"Role {role} created.");
+        }
+    }
+}
 
 // Middleware pipeline
 app.UseRouting();

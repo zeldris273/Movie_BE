@@ -450,7 +450,6 @@ C:\Users\nvh\Downloads\Compressed\DoAn\Movie_BE\bin\Debug\net8.0\backend.dll
 C:\Users\nvh\Downloads\Compressed\DoAn\Movie_BE\bin\Debug\net8.0\backend.pdb
 C:\Users\nvh\Downloads\Compressed\DoAn\Movie_BE\bin\Debug\net8.0\AWSSDK.Core.dll
 C:\Users\nvh\Downloads\Compressed\DoAn\Movie_BE\bin\Debug\net8.0\AWSSDK.S3.dll
-C:\Users\nvh\Downloads\Compressed\DoAn\Movie_BE\bin\Debug\net8.0\BCrypt.Net-Next.dll
 C:\Users\nvh\Downloads\Compressed\DoAn\Movie_BE\bin\Debug\net8.0\BouncyCastle.Cryptography.dll
 C:\Users\nvh\Downloads\Compressed\DoAn\Movie_BE\bin\Debug\net8.0\Google.Protobuf.dll
 C:\Users\nvh\Downloads\Compressed\DoAn\Movie_BE\bin\Debug\net8.0\Humanizer.dll
@@ -590,3 +589,8 @@ C:\Users\nvh\Downloads\Compressed\DoAn\Movie_BE\obj\Debug\net8.0\refint\backend.
 C:\Users\nvh\Downloads\Compressed\DoAn\Movie_BE\obj\Debug\net8.0\backend.pdb
 C:\Users\nvh\Downloads\Compressed\DoAn\Movie_BE\obj\Debug\net8.0\backend.genruntimeconfig.cache
 C:\Users\nvh\Downloads\Compressed\DoAn\Movie_BE\obj\Debug\net8.0\ref\backend.dll
+C:\Users\nvh\Downloads\Compressed\DoAn\Movie_BE\bin\Debug\net8.0\Microsoft.AspNetCore.Cryptography.Internal.dll
+C:\Users\nvh\Downloads\Compressed\DoAn\Movie_BE\bin\Debug\net8.0\Microsoft.AspNetCore.Cryptography.KeyDerivation.dll
+C:\Users\nvh\Downloads\Compressed\DoAn\Movie_BE\bin\Debug\net8.0\Microsoft.AspNetCore.Identity.EntityFrameworkCore.dll
+C:\Users\nvh\Downloads\Compressed\DoAn\Movie_BE\bin\Debug\net8.0\Microsoft.Extensions.Identity.Core.dll
+C:\Users\nvh\Downloads\Compressed\DoAn\Movie_BE\bin\Debug\net8.0\Microsoft.Extensions.Identity.Stores.dll
