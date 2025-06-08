@@ -23,7 +23,6 @@ namespace Movie_BE.Services
         {
             try
             {
-                // Initialize Open AI
                 var openAiKey = _configuration["OpenAI:ApiKey"];
                 if (string.IsNullOrEmpty(openAiKey))
                 {
@@ -32,7 +31,6 @@ namespace Movie_BE.Services
                 }
                 var openAi = new OpenAIAPI(openAiKey);
 
-                // Create prompt for Open AI to extract movie titles and criteria
                 var prompt = $"Based on this description: '{description}', suggest 1-3 specific titles that can be tv series or movie matching the described theme or story. Include key search criteria (e.g., genre, year, actors, themes, keywords). Return the result in a VALID JSON format with double quotes around property names, like {{\"MovieTitles\": [], \"Genre\": \"\", \"Year\": \"\", \"Actors\": \"\", \"Themes\": \"\", \"Keywords\": \"\"}}. Ensure titles are specific, relevant, and diverse. If the question is not related to movies, return {{\"Error\": \"Invalid question\"}}.";
                 var chatRequest = new ChatRequest
                 {
@@ -50,7 +48,6 @@ namespace Movie_BE.Services
                 var result = await openAi.Chat.CreateChatCompletionAsync(chatRequest);
                 var searchCriteriaJson = result.Choices[0].Message.Content.Trim();
 
-                // Validate JSON
                 if (string.IsNullOrWhiteSpace(searchCriteriaJson))
                 {
                     _logger.LogError("Open AI returned empty response for description: {Description}", description);
@@ -59,7 +56,6 @@ namespace Movie_BE.Services
 
                 _logger.LogInformation("Received Open AI response: {Json}", searchCriteriaJson);
 
-                // Try to parse JSON and handle potential invalid formats
                 JsonElement jsonElement;
                 try
                 {
@@ -68,17 +64,14 @@ namespace Movie_BE.Services
                 catch (JsonException ex)
                 {
                     _logger.LogError(ex, "Failed to parse Open AI response as JSON: {Json}", searchCriteriaJson);
-                    // Return a default error response if JSON is invalid
                     return JsonSerializer.Serialize(new { Error = "Invalid response format from Open AI" });
                 }
 
-                // Check if the response contains an error
                 if (jsonElement.TryGetProperty("Error", out var errorElement))
                 {
                     return JsonSerializer.Serialize(new { Error = errorElement.GetString() });
                 }
 
-                // Parse into MovieSearchCriteria if no error
                 MovieSearchCriteria searchCriteria;
                 try
                 {
@@ -96,7 +89,6 @@ namespace Movie_BE.Services
                     throw new Exception("Parsed search criteria is null.");
                 }
 
-                // Return Open AI response directly
                 return searchCriteriaJson;
             }
             catch (Exception ex)

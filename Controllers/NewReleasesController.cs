@@ -75,10 +75,9 @@ namespace Movie_BE.Controllers
                 // Tổng số bản phát hành
                 var total = await combinedReleases.CountAsync();
 
-                // Sắp xếp theo ngày hiện tại (giả lập "mới nhất" dựa trên ViewCount hoặc Rating nếu ReleaseDate không phù hợp)
-                // Lưu ý: Nếu bạn muốn dùng ReleaseDate, cần đảm bảo dữ liệu có giá trị
+                
                 var releases = await combinedReleases
-                    .OrderByDescending(r => r.ViewCount) // Sắp xếp theo lượt xem (có thể thay bằng ReleaseDate nếu cần)
+                    .OrderByDescending(r => r.ViewCount)
                     .ThenByDescending(r => r.Rating)
                     .Skip(offset)
                     .Take(limit)

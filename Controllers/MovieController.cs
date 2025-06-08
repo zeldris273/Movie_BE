@@ -137,15 +137,29 @@ namespace backend.Controllers
         [HttpGet]
         public IActionResult GetAllMovies()
         {
-            var movies = _context.Movies.ToList();
+            var movies = _context.Movies
+                .Include(m => m.MovieActors) // Tải MovieActors
+                .ThenInclude(ma => ma.Actor) // Tải Actor liên quan
+                .ToList();
             var result = movies.Select(m => new MovieResponseDTO
             {
                 Id = m.Id,
                 Title = m.Title,
-                Rating = (double?)m.Rating,
+                Overview = m.Overview,
+                Genres = m.Genres,
+                Status = m.Status,
                 ReleaseDate = m.ReleaseDate,
+                Studio = m.Studio,
+                Director = m.Director,
                 PosterUrl = m.PosterUrl,
                 BackdropUrl = m.BackdropUrl,
+                VideoUrl = m.VideoUrl,
+                TrailerUrl = m.TrailerUrl,
+                Actors = m.MovieActors.Select(ma => new ActorDTO
+                {
+                    Id = ma.Actor.Id,
+                    Name = ma.Actor.Name,
+                }).ToList()
             });
             return Ok(result);
         }
@@ -226,9 +240,12 @@ namespace backend.Controllers
         }
 
         [HttpPut("{id}")]
-        public IActionResult UpdateMovie(int id, [FromBody] MovieDTO updatedMovie)
+        public async Task<IActionResult> UpdateMovie(int id, [FromBody] MovieResponseDTO updatedMovie)
         {
-            var movie = _context.Movies.Find(id);
+            var movie = await _context.Movies
+                .Include(m => m.MovieActors)
+                .ThenInclude(ma => ma.Actor)
+                .FirstOrDefaultAsync(m => m.Id == id);
             if (movie == null) return NotFound();
 
             movie.Title = updatedMovie.Title;
@@ -243,7 +260,39 @@ namespace backend.Controllers
             movie.VideoUrl = updatedMovie.VideoUrl;
             movie.TrailerUrl = updatedMovie.TrailerUrl;
 
-            _context.SaveChanges();
+            if (updatedMovie.Actors != null && updatedMovie.Actors.Any())
+            {
+                // Xóa các diễn viên cũ
+                _context.MovieActors.RemoveRange(movie.MovieActors);
+
+                // Thêm các diễn viên mới
+                foreach (var actorDto in updatedMovie.Actors)
+                {
+                    var actor = await _context.Actors
+                        .FirstOrDefaultAsync(a => a.Id == actorDto.Id);
+
+                    if (actor == null)
+                    {
+                        actor = new Actor
+                        {
+                            Name = actorDto.Name,
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        _context.Actors.Add(actor);
+                        await _context.SaveChangesAsync();
+                    }
+
+                    var movieActor = new MovieActor
+                    {
+                        MovieId = movie.Id,
+                        ActorId = actor.Id,
+                        CharacterName = "" // Có thể thêm trường để nhập tên nhân vật
+                    };
+                    _context.MovieActors.Add(movieActor);
+                }
+            }
+
+            await _context.SaveChangesAsync();
             return NoContent();
         }
 

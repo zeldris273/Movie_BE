@@ -22,8 +22,8 @@ namespace backend.Controllers
             if (user == null)
                 return Unauthorized("Invalid credentials");
 
-            var accessToken = _authService.GenerateJwtToken(user);
-            var refreshToken = _authService.GenerateRefreshToken(user);
+            var accessToken = await _authService.GenerateJwtToken(user); // Sử dụng await
+            var refreshToken = await _authService.GenerateRefreshToken(user); // Sử dụng await
 
             var cookieOptions = new CookieOptions
             {
@@ -78,17 +78,17 @@ namespace backend.Controllers
         }
 
         [HttpPost("refresh-token")]
-        public IActionResult RefreshToken()
+        public async Task<IActionResult> RefreshToken()
         {
             if (!Request.Cookies.TryGetValue("RefreshToken", out var refreshToken))
                 return Unauthorized("Refresh token not found");
 
-            var user = _authService.ValidateRefreshToken(refreshToken);
+            var user = await _authService.ValidateRefreshToken(refreshToken);
             if (user == null)
                 return Unauthorized("Invalid or expired refresh token");
 
-            var newAccessToken = _authService.GenerateJwtToken(user);
-            var newRefreshToken = _authService.GenerateRefreshToken(user);
+            var newAccessToken = await _authService.GenerateJwtToken(user); // Sử dụng await
+            var newRefreshToken = await _authService.GenerateRefreshToken(user); // Sử dụng await
 
             var cookieOptions = new CookieOptions
             {
@@ -97,6 +97,8 @@ namespace backend.Controllers
                 Expires = DateTime.UtcNow.AddDays(7),
                 SameSite = SameSiteMode.None
             };
+            // Xóa cookie cũ trước khi thêm mới
+            Response.Cookies.Delete("RefreshToken");
             Response.Cookies.Append("RefreshToken", newRefreshToken, cookieOptions);
 
             return Ok(new { AccessToken = newAccessToken });

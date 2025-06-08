@@ -26,7 +26,8 @@ namespace backend.Controllers
         public async Task<IActionResult> SubmitRating([FromBody] RatingDTO ratingDto)
         {
             // Kiểm tra user ID từ token
-            var userIdClaim = User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+            var userIdClaim = User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value
+        ?? User.FindFirst("sub")?.Value;
             if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
             {
                 return Unauthorized(new { error = "User not authenticated or invalid user ID" });
