@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using backend.Services;
 using backend.Models;
+using Microsoft.AspNetCore.Identity;
 
 namespace backend.Controllers
 {
@@ -9,9 +10,11 @@ namespace backend.Controllers
     public class AuthController : ControllerBase
     {
         private readonly AuthService _authService;
+        private readonly SignInManager<CustomUser> _signInManager;
 
-        public AuthController(AuthService authService)
+        public AuthController(AuthService authService, SignInManager<CustomUser> signInManager)
         {
+            _signInManager = signInManager;
             _authService = authService;
         }
 
@@ -132,6 +135,53 @@ namespace backend.Controllers
                 return BadRequest("Failed to reset password");
 
             return Ok("Password reset successfully");
+        }
+
+        // Khởi động đăng nhập Google
+        [HttpGet("login/google")]
+        public IActionResult LoginWithGoogle()
+        {
+            var redirectUrl = Url.Action("ExternalLoginCallback", "Auth", new { provider = "Google" }, Request.Scheme);
+            var properties = _signInManager.ConfigureExternalAuthenticationProperties("Google", redirectUrl);
+            return Challenge(properties, "Google");
+        }
+
+        // Khởi động đăng nhập GitHub
+        [HttpGet("login/github")]
+        public IActionResult LoginWithGitHub()
+        {
+            var redirectUrl = Url.Action("ExternalLoginCallback", "Auth", new { provider = "GitHub" }, Request.Scheme);
+            var properties = _signInManager.ConfigureExternalAuthenticationProperties("GitHub", redirectUrl);
+            return Challenge(properties, "GitHub");
+        }
+
+        // Xử lý callback từ Google/GitHub
+        [HttpGet("external-login-callback")]
+        public async Task<IActionResult> ExternalLoginCallback(string provider, string returnUrl = null)
+        {
+            var info = await _signInManager.GetExternalLoginInfoAsync();
+            if (info == null)
+                return Unauthorized("External login information not found.");
+
+            var user = await _authService.HandleExternalLogin(provider, info);
+            if (user == null)
+                return Unauthorized("External login failed.");
+
+            var accessToken = await _authService.GenerateJwtToken(user);
+            var refreshToken = await _authService.GenerateRefreshToken(user);
+
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                Expires = DateTime.UtcNow.AddDays(7),
+                SameSite = SameSiteMode.None
+            };
+            Response.Cookies.Append("RefreshToken", refreshToken, cookieOptions);
+
+            // Chuyển hướng về frontend với token (có thể điều chỉnh URL)
+            string frontendUrl = "http://localhost:5173/auth";
+            return Redirect($"{frontendUrl}?token={Uri.EscapeDataString(accessToken)}");
         }
     }
 

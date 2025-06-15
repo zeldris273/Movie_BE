@@ -15,11 +15,9 @@ namespace backend.Data
         public DbSet<TvSeries> TvSeries { get; set; }
         public DbSet<Season> Seasons { get; set; }
         public DbSet<Episode> Episodes { get; set; }
-        //public DbSet<Comment> Comments { get; set; }
         public DbSet<WatchList> WatchList { get; set; }
         public DbSet<Actor> Actors { get; set; }
         public DbSet<Rating> Ratings { get; set; }
-
         public DbSet<Comment> Comments { get; set; }
         public DbSet<MovieActor> MovieActors { get; set; }
         public DbSet<TvSeriesActor> TvSeriesActors { get; set; }

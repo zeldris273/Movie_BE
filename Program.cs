@@ -70,7 +70,7 @@ builder.Services.ConfigureApplicationCookie(options =>
     };
 });
 
-// Thêm cấu hình xác thực JWT (sau Identity)
+// Thêm cấu hình xác thực JWT và External providers
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -100,12 +100,13 @@ builder.Services.AddAuthentication(options =>
         {
             var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
             logger.LogWarning("JWT Authentication failed: {Message}", context.Exception?.Message);
-            
+
             context.Response.StatusCode = 401;
             context.Response.ContentType = "application/json";
-            var result = System.Text.Json.JsonSerializer.Serialize(new { 
-                error = "Unauthorized", 
-                details = context.Exception?.Message 
+            var result = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                error = "Unauthorized",
+                details = context.Exception?.Message
             });
             return context.Response.WriteAsync(result);
         },
@@ -120,7 +121,7 @@ builder.Services.AddAuthentication(options =>
         OnTokenValidated = context =>
         {
             var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-            var userId = context.Principal.FindFirst("sub")?.Value ?? 
+            var userId = context.Principal.FindFirst("sub")?.Value ??
                         context.Principal.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
             logger.LogInformation("Token validated for user ID: {UserId}", userId);
             return Task.CompletedTask;
@@ -136,7 +137,25 @@ builder.Services.AddAuthentication(options =>
             return Task.CompletedTask;
         }
     };
+})
+// Thêm Google Authentication
+.AddGoogle("Google", options =>
+{
+    options.ClientId = builder.Configuration["Authentication:Google:ClientId"];
+    options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+    options.SignInScheme = IdentityConstants.ExternalScheme;
+    options.CallbackPath = "/signin-google"; // Đường dẫn callback
+})
+// Thêm GitHub Authentication - Sử dụng OAuth thay vì OpenIdConnect
+.AddGitHub("GitHub", options =>
+{
+    options.ClientId = builder.Configuration["Authentication:GitHub:ClientId"];
+    options.ClientSecret = builder.Configuration["Authentication:GitHub:ClientSecret"];
+    options.CallbackPath = "/signin-github"; // Đường dẫn callback
+    options.Scope.Add("user:email"); // Yêu cầu email từ GitHub
+    options.SignInScheme = IdentityConstants.ExternalScheme;
 });
+
 
 // Thêm dịch vụ controllers
 builder.Services.AddControllers();

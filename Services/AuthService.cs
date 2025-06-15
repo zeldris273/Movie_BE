@@ -40,7 +40,7 @@ namespace backend.Services
                 return false;
 
             var user = new CustomUser
-            { 
+            {
                 UserName = email.Trim(),
                 Email = email.Trim(),
                 CreatedAt = DateTime.UtcNow
@@ -231,6 +231,49 @@ namespace backend.Services
             var token = await _userManager.GeneratePasswordResetTokenAsync(user);
             var result = await _userManager.ResetPasswordAsync(user, token, newPassword);
             return result.Succeeded;
+        }
+        
+         public async Task<CustomUser> HandleExternalLogin(string provider, ExternalLoginInfo info)
+        {
+            if (info == null)
+                return null;
+
+            // Tìm user dựa trên login provider và key
+            var user = await _userManager.FindByLoginAsync(info.LoginProvider, info.ProviderKey);
+            if (user != null)
+            {
+                await _signInManager.SignInAsync(user, isPersistent: false);
+                return user;
+            }
+
+            // Tạo user mới nếu chưa tồn tại
+            var email = info.Principal.FindFirst(ClaimTypes.Email)?.Value;
+            if (!string.IsNullOrEmpty(email))
+            {
+                user = await _userManager.FindByEmailAsync(email);
+                if (user == null)
+                {
+                    user = new CustomUser
+                    {
+                        UserName = email,
+                        Email = email,
+                        EmailConfirmed = true // Giả sử email từ Google/GitHub đã xác thực
+                    };
+                    var result = await _userManager.CreateAsync(user);
+                    if (result.Succeeded)
+                    {
+                        await _userManager.AddToRoleAsync(user, "User"); // Gán role mặc định
+                        await _userManager.AddLoginAsync(user, info); // Liên kết login
+                    }
+                }
+                else
+                {
+                    await _userManager.AddLoginAsync(user, info); // Liên kết login với user hiện có
+                }
+                await _signInManager.SignInAsync(user, isPersistent: false);
+                return user;
+            }
+            return null;
         }
     }
 }

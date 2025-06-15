@@ -9,6 +9,8 @@
       "backend/1.0.0": {
         "dependencies": {
           "AWSSDK.S3": "3.7.415.18",
+          "AspNet.Security.OAuth.GitHub": "8.0.0",
+          "Microsoft.AspNetCore.Authentication.Google": "8.0.10",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "8.0.13",
           "Microsoft.AspNetCore.Identity.EntityFrameworkCore": "8.0.13",
           "Microsoft.AspNetCore.OpenApi": "8.0.13",
@@ -24,6 +26,14 @@
         },
         "runtime": {
           "backend.dll": {}
+        }
+      },
+      "AspNet.Security.OAuth.GitHub/8.0.0": {
+        "runtime": {
+          "lib/net8.0/AspNet.Security.OAuth.GitHub.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.23.56464"
+          }
         }
       },
       "AWSSDK.Core/3.7.402.19": {
@@ -95,6 +105,14 @@
           "lib/net6.0/K4os.Hash.xxHash.dll": {
             "assemblyVersion": "1.0.8.0",
             "fileVersion": "1.0.8.0"
+          }
+        }
+      },
+      "Microsoft.AspNetCore.Authentication.Google/8.0.10": {
+        "runtime": {
+          "lib/net8.0/Microsoft.AspNetCore.Authentication.Google.dll": {
+            "assemblyVersion": "8.0.10.0",
+            "fileVersion": "8.0.1024.46804"
           }
         }
       },
@@ -1067,6 +1085,13 @@
       "serviceable": false,
       "sha512": ""
     },
+    "AspNet.Security.OAuth.GitHub/8.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-FuxtaXIjpG9bWHhfkZKHJZtYHH58/uI+EvBEPiBhc176dFr+dknfpljWV5ou8c98mXN5XGkbe5nm1OKqiGRKlw==",
+      "path": "aspnet.security.oauth.github/8.0.0",
+      "hashPath": "aspnet.security.oauth.github.8.0.0.nupkg.sha512"
+    },
     "AWSSDK.Core/3.7.402.19": {
       "type": "package",
       "serviceable": true,
@@ -1122,6 +1147,13 @@
       "sha512": "sha512-Wp2F7BamQ2Q/7Hk834nV9vRQapgcr8kgv9Jvfm8J3D0IhDqZMMl+a2yxUq5ltJitvXvQfB8W6K4F4fCbw/P6YQ==",
       "path": "k4os.hash.xxhash/1.0.8",
       "hashPath": "k4os.hash.xxhash.1.0.8.nupkg.sha512"
+    },
+    "Microsoft.AspNetCore.Authentication.Google/8.0.10": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-ponvsoyGJKn19I8lbOE7RKP4et1sT4Mf5OFtBqF/5+CVfC4dgQry/jQud9rF66iFy0kdUHOoIK9LXtBfePQjvg==",
+      "path": "microsoft.aspnetcore.authentication.google/8.0.10",
+      "hashPath": "microsoft.aspnetcore.authentication.google.8.0.10.nupkg.sha512"
     },
     "Microsoft.AspNetCore.Authentication.JwtBearer/8.0.13": {
       "type": "package",

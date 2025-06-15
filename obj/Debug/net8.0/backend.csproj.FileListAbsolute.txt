@@ -594,3 +594,5 @@ C:\Users\nvh\Downloads\Compressed\DoAn\Movie_BE\bin\Debug\net8.0\Microsoft.AspNe
 C:\Users\nvh\Downloads\Compressed\DoAn\Movie_BE\bin\Debug\net8.0\Microsoft.AspNetCore.Identity.EntityFrameworkCore.dll
 C:\Users\nvh\Downloads\Compressed\DoAn\Movie_BE\bin\Debug\net8.0\Microsoft.Extensions.Identity.Core.dll
 C:\Users\nvh\Downloads\Compressed\DoAn\Movie_BE\bin\Debug\net8.0\Microsoft.Extensions.Identity.Stores.dll
+C:\Users\nvh\Downloads\Compressed\DoAn\Movie_BE\bin\Debug\net8.0\AspNet.Security.OAuth.GitHub.dll
+C:\Users\nvh\Downloads\Compressed\DoAn\Movie_BE\bin\Debug\net8.0\Microsoft.AspNetCore.Authentication.Google.dll
