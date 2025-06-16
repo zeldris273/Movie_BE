@@ -1,7 +1,9 @@
 using Amazon.S3;
 using backend.Data;
 using backend.Services;
+using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -10,9 +12,8 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.Server.IISIntegration;
 using Microsoft.AspNetCore.Http.Features;
 using Movie_BE.Services;
-using backend.Models;
 using Microsoft.AspNetCore.Identity;
-using Pomelo.EntityFrameworkCore.MySql.Infrastructure;
+using backend.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -34,16 +35,26 @@ builder.Services.Configure<FormOptions>(options =>
     options.MultipartBodyLengthLimit = 1024L * 1024 * 2048; // 2GB
 });
 
+// Thêm dịch vụ controllers
+builder.Services.AddControllers();
+
+// Thêm Swagger
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Movie API", Version = "v1" });
+    c.OperationFilter<SwaggerFileUploadOperationFilter>();
+});
+
 // Đăng ký DbContext với MySQL
 builder.Services.AddDbContext<MovieDbContext>(options =>
     options.UseMySql(builder.Configuration.GetConnectionString("DefaultConnection"),
-        serverVersion: new MySqlServerVersion(new Version(8, 0, 29)), // Chỉ định phiên bản MySQL
+        serverVersion: new MySqlServerVersion(new Version(8, 0, 29)),
         mySqlOptions => mySqlOptions.EnableRetryOnFailure(
             maxRetryCount: 5,
             maxRetryDelay: TimeSpan.FromSeconds(30),
             errorNumbersToAdd: null)));
 
-// Cấu hình Identity trước khi thêm Authentication
+// Thêm Identity
 builder.Services.AddIdentity<CustomUser, IdentityRole<int>>(options =>
 {
     options.Password.RequireDigit = true;
@@ -55,90 +66,48 @@ builder.Services.AddIdentity<CustomUser, IdentityRole<int>>(options =>
 .AddEntityFrameworkStores<MovieDbContext>()
 .AddDefaultTokenProviders();
 
-// Vô hiệu hóa cookie authentication của Identity 
-builder.Services.ConfigureApplicationCookie(options =>
+// Đăng ký AuthService
+builder.Services.AddScoped<AuthService>();
+
+// Đăng ký S3Service và IAmazonS3
+builder.Services.AddSingleton<IAmazonS3>(sp =>
 {
-    options.Events.OnRedirectToLogin = context =>
+    var s3Config = new AmazonS3Config
     {
-        context.Response.StatusCode = 401;
-        return Task.CompletedTask;
+        RegionEndpoint = Amazon.RegionEndpoint.APNortheast1 // ap-northeast-1 (Tokyo)
     };
-    options.Events.OnRedirectToAccessDenied = context =>
-    {
-        context.Response.StatusCode = 403;
-        return Task.CompletedTask;
-    };
+    return new AmazonS3Client(
+        builder.Configuration["AWS:AccessKey"],
+        builder.Configuration["AWS:SecretKey"],
+        s3Config);
 });
 
-// Thêm cấu hình xác thực JWT và External providers
+builder.Services.AddScoped<S3Service>();
+
+// Đăng ký MovieChatbotSearchService
+builder.Services.AddSingleton<MovieChatbotSearchService>();
+
+// Thêm cấu hình xác thực JWT
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultSignInScheme = IdentityConstants.ExternalScheme; // Hỗ trợ external login
 })
 .AddJwtBearer(options =>
 {
-    options.SaveToken = true;
-    options.RequireHttpsMetadata = false; // Chỉ cho development
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ClockSkew = TimeSpan.Zero, // Giảm thời gian chênh lệch clock
         ValidIssuer = builder.Configuration["Jwt:Issuer"],
         ValidAudience = builder.Configuration["Jwt:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
-    };
-
-    options.Events = new JwtBearerEvents
-    {
-        OnAuthenticationFailed = context =>
-        {
-            var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-            logger.LogWarning("JWT Authentication failed: {Message}", context.Exception?.Message);
-
-            context.Response.StatusCode = 401;
-            context.Response.ContentType = "application/json";
-            var result = System.Text.Json.JsonSerializer.Serialize(new
-            {
-                error = "Unauthorized",
-                details = context.Exception?.Message
-            });
-            return context.Response.WriteAsync(result);
-        },
-        OnChallenge = context =>
-        {
-            context.HandleResponse();
-            context.Response.StatusCode = 401;
-            context.Response.ContentType = "application/json";
-            return context.Response.WriteAsync(
-                System.Text.Json.JsonSerializer.Serialize(new { error = "Authentication required" }));
-        },
-        OnTokenValidated = context =>
-        {
-            var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-            var userId = context.Principal.FindFirst("sub")?.Value ??
-                        context.Principal.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
-            logger.LogInformation("Token validated for user ID: {UserId}", userId);
-            return Task.CompletedTask;
-        },
-        OnMessageReceived = context =>
-        {
-            var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-            var token = context.Request.Headers["Authorization"].FirstOrDefault()?.Split(" ").Last();
-            if (!string.IsNullOrEmpty(token))
-            {
-                logger.LogDebug("Received token: {Token}", token.Substring(0, Math.Min(20, token.Length)) + "...");
-            }
-            return Task.CompletedTask;
-        }
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
     };
 })
-// Thêm Google Authentication
+// Thêm Google Authentication (sử dụng phiên bản tương thích với .NET 8.0, ví dụ 8.0.10)
 .AddGoogle("Google", options =>
 {
     options.ClientId = builder.Configuration["Authentication:Google:ClientId"];
@@ -146,7 +115,7 @@ builder.Services.AddAuthentication(options =>
     options.SignInScheme = IdentityConstants.ExternalScheme;
     options.CallbackPath = "/signin-google"; // Đường dẫn callback
 })
-// Thêm GitHub Authentication - Sử dụng OAuth thay vì OpenIdConnect
+// Thêm GitHub Authentication (sử dụng OpenIdConnect hoặc phiên bản cũ tương thích)
 .AddGitHub("GitHub", options =>
 {
     options.ClientId = builder.Configuration["Authentication:GitHub:ClientId"];
@@ -156,113 +125,112 @@ builder.Services.AddAuthentication(options =>
     options.SignInScheme = IdentityConstants.ExternalScheme;
 });
 
-
-// Thêm dịch vụ controllers
-builder.Services.AddControllers();
-
-// Thêm HttpClient
-builder.Services.AddHttpClient();
-
-// Thêm logging
-builder.Services.AddLogging(logging =>
-{
-    logging.AddConsole();
-    logging.AddDebug();
-});
-
-// Thêm Swagger với JWT support
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Movie API", Version = "v1" });
-    c.OperationFilter<SwaggerFileUploadOperationFilter>();
-    
-    // Thêm JWT authentication cho Swagger
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token in the text input below.",
-        Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
-    });
-    
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            new string[] {}
-        }
-    });
-});
-
-// Đăng ký các services
-builder.Services.AddScoped<AuthService>();
-
-// Đăng ký S3Service và IAmazonS3
-builder.Services.AddSingleton<IAmazonS3>(sp =>
-{
-    var s3Config = new AmazonS3Config
-    {
-        RegionEndpoint = Amazon.RegionEndpoint.APNortheast1
-    };
-    return new AmazonS3Client(
-        builder.Configuration["AWS:AccessKey"],
-        builder.Configuration["AWS:SecretKey"],
-        s3Config);
-});
-
-builder.Services.AddScoped<S3Service>();
-builder.Services.AddSingleton<MovieChatbotSearchService>();
-builder.Services.AddMemoryCache();
-
-// Thêm CORS - Sửa cấu hình
+// Thêm CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowFrontend", policy =>
+    options.AddPolicy("AllowFrontend", builder =>
     {
-        policy.WithOrigins("http://localhost:5173") // Chỉ frontend
+        builder.WithOrigins("http://localhost:5173", "http://localhost:5116")
                .AllowAnyMethod()
                .AllowAnyHeader()
                .AllowCredentials();
     });
 });
 
+// Thêm MemoryCache
+builder.Services.AddMemoryCache();
+
 var app = builder.Build();
 
-// Seed roles khi ứng dụng khởi động
+// 1. Thêm vào Program.cs để debug roles
 using (var scope = app.Services.CreateScope())
 {
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<int>>>();
-    var roles = new[] { "Admin", "User" };
+    var services = scope.ServiceProvider;
+    var roleManager = services.GetRequiredService<RoleManager<IdentityRole<int>>>();
+    var userManager = services.GetRequiredService<UserManager<CustomUser>>();
 
+    // Tạo roles
+    var roles = new[] { "Admin", "User" };
     foreach (var role in roles)
     {
         if (!await roleManager.RoleExistsAsync(role))
         {
-            await roleManager.CreateAsync(new IdentityRole<int> { Name = role, NormalizedName = role.ToUpper() });
-            Console.WriteLine($"Role {role} created.");
+            var result = await roleManager.CreateAsync(new IdentityRole<int> { Name = role, NormalizedName = role.ToUpper() });
+            if (result.Succeeded)
+            {
+                Console.WriteLine($"Role '{role}' đã được tạo thành công.");
+            }
+            else
+            {
+                Console.WriteLine($"Không thể tạo role '{role}': {string.Join(", ", result.Errors.Select(e => e.Description))}");
+            }
         }
+        else
+        {
+            Console.WriteLine($"Role '{role}' đã tồn tại.");
+        }
+    }
+
+    // DEBUG: In ra tất cả roles
+    var allRoles = roleManager.Roles.ToList();
+    Console.WriteLine("=== ALL ROLES ===");
+    foreach (var role in allRoles)
+    {
+        Console.WriteLine($"Role ID: {role.Id}, Name: {role.Name}, NormalizedName: {role.NormalizedName}");
+    }
+
+    // DEBUG: Kiểm tra user có email cụ thể
+    var testUser = await userManager.FindByEmailAsync("zeldris.273@gmail.com");
+    if (testUser != null)
+    {
+        Console.WriteLine($"=== USER INFO ===");
+        Console.WriteLine($"User ID: {testUser.Id}, Email: {testUser.Email}");
+        
+        var userRoles = await userManager.GetRolesAsync(testUser);
+        Console.WriteLine($"User Roles: {string.Join(", ", userRoles)}");
+        
+        // Nếu user chưa có role Admin, gán cho user
+        if (!userRoles.Contains("Admin"))
+        {
+            var addRoleResult = await userManager.AddToRoleAsync(testUser, "Admin");
+            if (addRoleResult.Succeeded)
+            {
+                Console.WriteLine("Đã gán role Admin cho user thành công!");
+                
+                // Kiểm tra lại
+                var updatedRoles = await userManager.GetRolesAsync(testUser);
+                Console.WriteLine($"Updated User Roles: {string.Join(", ", updatedRoles)}");
+            }
+            else
+            {
+                Console.WriteLine($"Lỗi khi gán role: {string.Join(", ", addRoleResult.Errors.Select(e => e.Description))}");
+            }
+        }
+    }
+    else
+    {
+        Console.WriteLine("Không tìm thấy user với email zeldris.273@gmail.com");
     }
 }
 
-// Configure middleware pipeline - THỨ TỰ QUAN TRỌNG
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Movie API V1"));
-}
-
-app.UseCors("AllowFrontend"); // CORS trước routing
+// Middleware pipeline
 app.UseRouting();
-app.UseAuthentication(); // Authentication trước Authorization
+
+// Đảm bảo CORS được gọi trước Authentication và Authorization
+app.UseCors("AllowFrontend");
+
+// Log response headers
+app.Use(async (context, next) =>
+{
+    Console.WriteLine($"Request: {context.Request.Method} {context.Request.Path}");
+    await next();
+    Console.WriteLine($"Response Headers: {string.Join(", ", context.Response.Headers.Select(h => $"{h.Key}: {h.Value}"))}");
+});
+
+app.UseAuthentication();
 app.UseAuthorization();
+app.UseSwagger();
+app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "My API V1"));
 app.MapControllers();
 
 app.Run();
